@@ -3,9 +3,6 @@ const BOOKING_TOKEN_URL = "https://booking.guesty.com/oauth2/token";
 const OPEN_BASE_URL = "https://open-api.guesty.com/v1";
 const OPEN_TOKEN_URL = "https://open-api.guesty.com/oauth2/token";
 
-const fallbackImage =
-  "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1400&q=82";
-
 const bookingFields = [
   "_id",
   "id",
@@ -24,7 +21,9 @@ const bookingFields = [
   "descriptions",
   "publicDescription",
   "description",
+  "marketingDescription",
   "nightlyRates",
+  "price",
   "prices",
 ].join(" ");
 
@@ -62,29 +61,21 @@ async function getToken(mode) {
 
   let tokenResponse;
 
-  if (mode === "open") {
-    tokenResponse = await fetch(OPEN_TOKEN_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId, clientSecret }),
-    });
-  } else {
-    const body = new URLSearchParams({
-      grant_type: "client_credentials",
-      scope: "booking_engine:api",
-      client_id: clientId,
-      client_secret: clientSecret,
-    });
+  const body = new URLSearchParams({
+    grant_type: "client_credentials",
+    scope: mode === "open" ? "open-api" : "booking_engine:api",
+    client_id: clientId,
+    client_secret: clientSecret,
+  });
 
-    tokenResponse = await fetch(BOOKING_TOKEN_URL, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body,
-    });
-  }
+  tokenResponse = await fetch(mode === "open" ? OPEN_TOKEN_URL : BOOKING_TOKEN_URL, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
 
   const payload = await tokenResponse.json().catch(() => ({}));
 
@@ -108,20 +99,47 @@ function setIfPresent(params, key, value) {
 function buildGuestyUrl(query, mode) {
   const search = new URLSearchParams();
   const limit = Math.min(Number(query.get("limit") || 50), 100);
+  const checkIn = query.get("checkIn");
+  const checkOut = query.get("checkOut");
+  const guests = Number(query.get("guests") || 0);
+  const city = query.get("city");
 
   search.set("limit", String(limit));
+  search.set("fields", bookingFields);
 
   if (mode === "open") {
     search.set("active", "true");
-    search.set("isListed", "true");
-  } else {
-    search.set("fields", bookingFields);
+    search.set("listed", "true");
+    search.set("sort", "title");
+
+    if (process.env.GUESTY_VIEW_ID) {
+      search.set("viewId", process.env.GUESTY_VIEW_ID);
+    }
+
+    if (checkIn && checkOut) {
+      search.set(
+        "available",
+        JSON.stringify({
+          checkIn,
+          checkOut,
+          ...(guests ? { minOccupancy: guests } : {}),
+        }),
+      );
+    }
   }
 
-  setIfPresent(search, "city", query.get("city"));
-  setIfPresent(search, "country", query.get("country") || process.env.GUESTY_DEFAULT_COUNTRY);
-  setIfPresent(search, "checkIn", query.get("checkIn"));
-  setIfPresent(search, "checkOut", query.get("checkOut"));
+  setIfPresent(search, "city", city);
+  setIfPresent(search, "q", city && mode === "open" ? city : "");
+  setIfPresent(search, "country", query.get("country") || (mode === "booking" ? process.env.GUESTY_DEFAULT_COUNTRY : ""));
+
+  if (mode === "booking") {
+    setIfPresent(search, "checkIn", checkIn);
+    setIfPresent(search, "checkOut", checkOut);
+  }
+
+  if (process.env.GUESTY_LISTING_TAG) {
+    search.set("tags", process.env.GUESTY_LISTING_TAG);
+  }
 
   if (query.get("minPrice")) {
     search.set("minPrice", query.get("minPrice"));
@@ -180,13 +198,15 @@ function getImage(listing) {
 
   return (
     firstPicture?.original ||
+    firstPicture?.regular ||
     firstPicture?.url ||
     firstPicture?.thumbnail ||
     listing.picture?.original ||
+    listing.picture?.regular ||
     listing.picture?.url ||
     listing.thumbnail ||
     listing.image ||
-    fallbackImage
+    ""
   );
 }
 
@@ -203,7 +223,7 @@ function getPrice(listing) {
 
 function getLocation(listing) {
   const address = listing.address || {};
-  return [address.city, address.state, address.country].filter(Boolean).join(", ") || "Beach destination";
+  return [address.city, address.state, address.country].filter(Boolean).join(", ");
 }
 
 function normalizeAmenities(amenities) {
@@ -250,38 +270,24 @@ function normalizeGuestyListing(listing) {
   const bathrooms = toNumber(listing.bathrooms);
   const guests = toNumber(listing.accommodates || listing.guests);
   const text = getListingText(listing);
-  const title = listing.title || listing.nickname || "Guesty combined beach stay";
+  const title = listing.title || listing.nickname || "Untitled Guesty listing";
+  const image = getImage(listing);
 
   return {
     id: getListingId(listing),
     title,
-    resort: listing.address?.city || listing.nickname || "VacationRentalExpertz",
+    resort: listing.address?.city || "",
     location: getLocation(listing),
-    badge: bedrooms ? `${bedrooms}BR combined listing` : "Guesty combined listing",
+    badge: bedrooms ? `${bedrooms} bedrooms` : "",
     bedrooms,
     bathrooms,
     guests,
     price: getPrice(listing),
-    image: getImage(listing),
+    image,
     imageAlt: `${title} vacation rental`,
-    summary:
-      truncate(text, 170) ||
-      "A Guesty-managed combined listing for beach groups that want togetherness, value, and wind-down separation.",
-    description:
-      text ||
-      "This stay is maintained in Guesty as one combined, guest-facing listing. The listing description should explain the two-place setup, proximity, and wind-down benefits for guests.",
-    units: [
-      {
-        name: "Combined Guesty listing",
-        detail: `${bedrooms || "Multiple"} bedrooms, ${bathrooms || "multiple"} baths, sleeps ${
-          guests || "your group"
-        }.`,
-      },
-      {
-        name: "Guest-facing setup",
-        detail: "The two-place structure, proximity, and wind-down separation are described directly in Guesty.",
-      },
-    ],
+    summary: truncate(text, 170),
+    description: text,
+    units: [],
     amenities: normalizeAmenities(listing.amenities),
     guestyListingId: getListingId(listing),
   };
@@ -302,7 +308,12 @@ async function fetchGuestyListings(query, mode, token) {
     throw new Error(payload.message || payload.error || "Guesty listings request failed.");
   }
 
-  return Array.isArray(payload.results) ? payload.results : payload.listings || [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload.results)) return payload.results;
+  if (Array.isArray(payload.listings)) return payload.listings;
+  if (Array.isArray(payload.data)) return payload.data;
+
+  return [];
 }
 
 export default async function handler(request, response) {
@@ -322,22 +333,28 @@ export default async function handler(request, response) {
   }
 
   try {
-    const mode = process.env.GUESTY_API_MODE === "open" ? "open" : "booking";
+    const mode = process.env.GUESTY_API_MODE === "booking" ? "booking" : "open";
     const query = getQuery(request);
     const token = await getToken(mode);
-    const listings = filterListings(await fetchGuestyListings(query, mode, token));
+    const fetchedListings = await fetchGuestyListings(query, mode, token);
+    const listings = filterListings(fetchedListings);
     const collections = listings.map(normalizeGuestyListing);
 
     sendJson(response, 200, {
       source: "guesty",
+      mode,
       collections,
-      rawCount: listings.length,
+      rawCount: fetchedListings.length,
+      filteredCount: listings.length,
       syncedAt: new Date().toISOString(),
-      message: collections.length > 0 ? "" : "Guesty returned no combined listings for this search.",
+      message:
+        collections.length > 0
+          ? ""
+          : "Guesty returned zero listings for this search/configuration. Check the API mode, listing filters, Booking Engine inclusion, or Guesty view/tag settings.",
     });
   } catch (error) {
     sendJson(response, 500, {
-      source: "demo",
+      source: "guesty",
       collections: [],
       message: error.message || "Guesty inventory could not be loaded.",
     });

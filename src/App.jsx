@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import logoImage from "./assets/brand/vacation-rental-expertz-header.svg";
 import mobileLogoImage from "./assets/brand/vacation-rental-expertz-header-mobile.svg";
-import { fallbackCollections, fetchGuestyCollections } from "./guesty";
+import { fetchGuestyCollections } from "./guesty";
 
 const stats = [
   { value: "2x", label: "nearby beach condos instead of one oversized house" },
@@ -72,6 +72,19 @@ function formatCurrency(value) {
   }).format(value);
 }
 
+function getStatusLabel(status) {
+  if (status === "loading") return "Loading Guesty listings";
+  if (status === "live") return "Guesty listings live";
+  if (status === "empty") return "No Guesty listings found";
+  if (status === "error") return "Guesty connection needs attention";
+  return "Connecting to Guesty";
+}
+
+function formatMetric(value, singular, plural = `${singular}s`) {
+  if (!value) return "";
+  return `${value} ${value === 1 ? singular : plural}`;
+}
+
 function createInquiryUrl(stay, search) {
   const params = new URLSearchParams({
     subject: `Quote request: ${stay.title}`,
@@ -94,10 +107,10 @@ function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [search, setSearch] = useState(defaultSearch);
   const [submittedSearch, setSubmittedSearch] = useState(defaultSearch);
-  const [collections, setCollections] = useState(fallbackCollections);
+  const [collections, setCollections] = useState([]);
   const [guestyStatus, setGuestyStatus] = useState("idle");
   const [guestyMessage, setGuestyMessage] = useState("");
-  const [activeStay, setActiveStay] = useState(fallbackCollections[0]);
+  const [activeStay, setActiveStay] = useState(null);
 
   useEffect(() => {
     let ignore = false;
@@ -111,25 +124,17 @@ function App() {
 
         if (ignore) return;
 
-        if (response.collections.length > 0) {
-          setCollections(response.collections);
-          setActiveStay(response.collections[0]);
-          setGuestyStatus(response.source === "guesty" ? "live" : "demo");
-          setGuestyMessage(response.message || "");
-          return;
-        }
-
-        setCollections(fallbackCollections);
-        setActiveStay(fallbackCollections[0]);
-        setGuestyStatus("demo");
-        setGuestyMessage("Demo listings are showing until Guesty returns matching combined listings.");
+        setCollections(response.collections);
+        setActiveStay(response.collections[0] || null);
+        setGuestyStatus(response.collections.length > 0 ? "live" : "empty");
+        setGuestyMessage(response.message || "");
       } catch (error) {
         if (ignore) return;
 
-        setCollections(fallbackCollections);
-        setActiveStay(fallbackCollections[0]);
-        setGuestyStatus("demo");
-        setGuestyMessage(error.message || "Demo listings are showing until Guesty is connected.");
+        setCollections([]);
+        setActiveStay(null);
+        setGuestyStatus("error");
+        setGuestyMessage(error.message || "Guesty inventory could not be loaded.");
       }
     }
 
@@ -296,86 +301,125 @@ function App() {
             </div>
             <div className="live-pill" data-status={guestyStatus}>
               <span />
-              {guestyStatus === "live" ? "Guesty live combined listings" : "Guesty-ready demo inventory"}
+              {getStatusLabel(guestyStatus)}
             </div>
           </div>
 
           {guestyMessage && <p className="sync-note">{guestyMessage}</p>}
 
-          <div className="collection-grid">
-            {visibleCollections.map((stay) => (
-              <article className="stay-card" key={stay.id}>
-                <button className="stay-image-button" type="button" onClick={() => setActiveStay(stay)}>
-                  <img src={stay.image} alt={stay.imageAlt} />
-                  <span>{stay.badge}</span>
-                </button>
-                <div className="stay-body">
-                  <div className="stay-location">
-                    <MapPin size={16} />
-                    {stay.location}
-                  </div>
-                  <h3>{stay.title}</h3>
-                  <p>{stay.summary}</p>
-                  <div className="stay-metrics" aria-label={`${stay.title} details`}>
-                    <span>
-                      <BedDouble size={17} />
-                      {stay.bedrooms} bedrooms
-                    </span>
-                    <span>
-                      <Bath size={17} />
-                      {stay.bathrooms} baths
-                    </span>
-                    <span>
-                      <Users size={17} />
-                      Sleeps {stay.guests}
-                    </span>
-                  </div>
-                </div>
-                <div className="stay-footer">
-                  <strong>
-                    {formatCurrency(stay.price)}
-                    {stay.price ? <small>/night from</small> : <small>prepared by team</small>}
-                  </strong>
-                  <button type="button" onClick={() => setActiveStay(stay)}>
-                    Details
-                    <ArrowRight size={17} />
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
+          {visibleCollections.length === 0 ? (
+            <div className="empty-state" data-status={guestyStatus}>
+              <Building2 size={28} />
+              <h3>{guestyStatus === "loading" ? "Pulling your Guesty listings" : "No live Guesty listings to show yet"}</h3>
+              <p>
+                {guestyStatus === "loading"
+                  ? "The site is asking Guesty for your real property data."
+                  : guestyMessage ||
+                    "No placeholder properties are being shown. Once Guesty returns listings, this section will fill with your real inventory."}
+              </p>
+            </div>
+          ) : (
+            <div className="collection-grid">
+              {visibleCollections.map((stay) => {
+                const metrics = [
+                  { icon: <BedDouble size={17} />, label: formatMetric(stay.bedrooms, "bedroom") },
+                  { icon: <Bath size={17} />, label: formatMetric(stay.bathrooms, "bath") },
+                  { icon: <Users size={17} />, label: stay.guests ? `Sleeps ${stay.guests}` : "" },
+                ].filter((metric) => metric.label);
+
+                return (
+                  <article className="stay-card" key={stay.id}>
+                    <button className="stay-image-button" type="button" onClick={() => setActiveStay(stay)}>
+                      {stay.image ? (
+                        <img src={stay.image} alt={stay.imageAlt} />
+                      ) : (
+                        <span className="photo-missing">
+                          <Building2 size={24} />
+                          Photo missing in Guesty
+                        </span>
+                      )}
+                      {stay.badge && <span className="stay-badge">{stay.badge}</span>}
+                    </button>
+                    <div className="stay-body">
+                      {stay.location && (
+                        <div className="stay-location">
+                          <MapPin size={16} />
+                          {stay.location}
+                        </div>
+                      )}
+                      <h3>{stay.title}</h3>
+                      {stay.summary && <p>{stay.summary}</p>}
+                      {metrics.length > 0 && (
+                        <div className="stay-metrics" aria-label={`${stay.title} details`}>
+                          {metrics.map((metric) => (
+                            <span key={metric.label}>
+                              {metric.icon}
+                              {metric.label}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="stay-footer">
+                      <strong>
+                        {formatCurrency(stay.price)}
+                        {stay.price ? <small>/night from Guesty</small> : <small>pricing from Guesty</small>}
+                      </strong>
+                      <button type="button" onClick={() => setActiveStay(stay)}>
+                        Details
+                        <ArrowRight size={17} />
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </section>
 
-        <section className="detail-section" aria-label="Selected combo stay details">
-          <div className="detail-media">
-            <img src={activeStay.image} alt={activeStay.imageAlt} />
-          </div>
-          <div className="detail-copy">
-            <p className="section-kicker">Current Selection</p>
-            <h2>{activeStay.title}</h2>
-            <p>{activeStay.description}</p>
-            <div className="unit-list">
-              {activeStay.units.map((unit) => (
-                <div className="unit-row" key={unit.name}>
-                  <Home size={19} />
-                  <div>
-                    <strong>{unit.name}</strong>
-                    <span>{unit.detail}</span>
-                  </div>
+        {activeStay && (
+          <section className="detail-section" aria-label="Selected combo stay details">
+            <div className="detail-media">
+              {activeStay.image ? (
+                <img src={activeStay.image} alt={activeStay.imageAlt} />
+              ) : (
+                <div className="detail-photo-missing">
+                  <Building2 size={34} />
+                  Photo missing in Guesty
                 </div>
-              ))}
+              )}
             </div>
-            <div className="amenity-cloud" aria-label="Included amenities">
-              {activeStay.amenities.map((amenity) => (
-                <span key={amenity}>{amenity}</span>
-              ))}
+            <div className="detail-copy">
+              <p className="section-kicker">Current Selection</p>
+              <h2>{activeStay.title}</h2>
+              {activeStay.description && <p>{activeStay.description}</p>}
+              {activeStay.units.length > 0 && (
+                <div className="unit-list">
+                  {activeStay.units.map((unit) => (
+                    <div className="unit-row" key={`${unit.name}-${unit.detail}`}>
+                      <Home size={19} />
+                      <div>
+                        {unit.name && <strong>{unit.name}</strong>}
+                        {unit.detail && <span>{unit.detail}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {activeStay.amenities.length > 0 && (
+                <div className="amenity-cloud" aria-label="Included amenities">
+                  {activeStay.amenities.map((amenity) => (
+                    <span key={amenity}>{amenity}</span>
+                  ))}
+                </div>
+              )}
+              <a className="primary-action dark" href={createInquiryUrl(activeStay, submittedSearch)}>
+                Request this combo
+                <Mail size={18} />
+              </a>
             </div>
-            <a className="primary-action dark" href={createInquiryUrl(activeStay, submittedSearch)}>
-              Request this combo
-              <Mail size={18} />
-            </a>
-          </div>
-        </section>
+          </section>
+        )}
 
         <section className="method-section" id="method">
           <div className="section-heading compact">

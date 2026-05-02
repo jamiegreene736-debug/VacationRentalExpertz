@@ -17,7 +17,7 @@ npm run build
 
 ## Guesty Integration
 
-Guesty credentials must stay server-side. The browser calls `/api/guesty` by default, and that serverless route requests Guesty inventory and returns your already-combined Guesty listings to the React app.
+Guesty credentials must stay server-side. The browser calls `/api/guesty` by default, and the Node server requests Guesty inventory and returns your already-combined Guesty listings to the React app. The site does not show placeholder property listings if Guesty is unavailable.
 
 Copy `.env.example` to `.env.local` for local configuration:
 
@@ -29,19 +29,22 @@ Important variables:
 
 ```env
 VITE_GUESTY_PROXY_URL=/api/guesty
-GUESTY_API_MODE=booking
+GUESTY_API_MODE=open
 GUESTY_CLIENT_ID=
 GUESTY_CLIENT_SECRET=
 GUESTY_DEFAULT_COUNTRY=United States
 GUESTY_LISTING_IDS=
 GUESTY_LISTING_TAG=
+GUESTY_VIEW_ID=
 ```
 
-The site assumes the listings returned from Guesty are already the combined, guest-facing listings. `GUESTY_LISTING_IDS` and `GUESTY_LISTING_TAG` are optional filters in case the Guesty account also contains listings that should not appear on the public website.
+The site assumes the listings returned from Guesty are already the combined, guest-facing listings. `GUESTY_API_MODE=open` pulls from the Guesty Open API and is the default for displaying your PMS listings. Use `GUESTY_API_MODE=booking` only when you are using Booking Engine API credentials and the listings are included in that Booking Engine API instance.
+
+`GUESTY_LISTING_IDS`, `GUESTY_LISTING_TAG`, and `GUESTY_VIEW_ID` are optional filters in case the Guesty account also contains listings that should not appear on the public website.
 
 ## Deployment Note
 
-The included `api/guesty.js` route is suitable for serverless hosts such as Vercel. A static-only GitHub Pages deployment cannot run this route, so use `VITE_GUESTY_PROXY_URL` to point the frontend at a hosted backend if the site stays on GitHub Pages.
+Railway should run `npm run build` and then `npm start`. `npm start` launches `server.js`, which serves the built React site and the live `/api/guesty` endpoint. A static-only deployment cannot run this route, so use `VITE_GUESTY_PROXY_URL` to point the frontend at a hosted backend if the site is ever served as static files only.
 
 ## Guesty References
 
