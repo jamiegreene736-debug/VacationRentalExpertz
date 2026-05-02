@@ -9,6 +9,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distDir = path.join(__dirname, "dist");
 const port = process.env.PORT || 4173;
+const apexHost = "vacationrentalexpertz.com";
+const wwwHost = "www.vacationrentalexpertz.com";
 
 const mimeTypes = {
   ".css": "text/css; charset=utf-8",
@@ -72,6 +74,14 @@ async function serveFile(requestPath, response) {
 
 createServer((request, response) => {
   const url = new URL(request.url, `http://${request.headers.host || "localhost"}`);
+  const host = request.headers.host?.split(":")[0]?.toLowerCase();
+
+  if (host === apexHost) {
+    response.statusCode = 301;
+    response.setHeader("Location", `https://${wwwHost}${url.pathname}${url.search}`);
+    response.end();
+    return;
+  }
 
   if (url.pathname === "/api/guesty") {
     guestyHandler(request, response);
