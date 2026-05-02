@@ -3,8 +3,12 @@ const BOOKING_TOKEN_URL = "https://booking.guesty.com/oauth2/token";
 const OPEN_BASE_URL = "https://open-api.guesty.com/v1";
 const OPEN_TOKEN_URL = "https://open-api.guesty.com/oauth2/token";
 
+const fallbackImage =
+  "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1400&q=82";
+
 const bookingFields = [
   "_id",
+  "id",
   "nickname",
   "title",
   "type",
@@ -12,12 +16,14 @@ const bookingFields = [
   "bathrooms",
   "accommodates",
   "amenities",
+  "tags",
   "address",
   "pictures",
   "picture",
   "thumbnail",
   "descriptions",
   "publicDescription",
+  "description",
   "nightlyRates",
   "prices",
 ].join(" ");
@@ -38,17 +44,6 @@ function sendJson(response, status, payload) {
 function getQuery(request) {
   const host = request.headers.host || "localhost";
   return new URL(request.url, `https://${host}`).searchParams;
-}
-
-function parseComboGroups() {
-  if (!process.env.GUESTY_COMBO_GROUPS) return [];
-
-  try {
-    const groups = JSON.parse(process.env.GUESTY_COMBO_GROUPS);
-    return Array.isArray(groups) ? groups : [];
-  } catch (error) {
-    throw new Error("GUESTY_COMBO_GROUPS must be valid JSON.");
-  }
 }
 
 async function getToken(mode) {
@@ -128,10 +123,6 @@ function buildGuestyUrl(query, mode) {
   setIfPresent(search, "checkIn", query.get("checkIn"));
   setIfPresent(search, "checkOut", query.get("checkOut"));
 
-  if (query.get("bedrooms")) {
-    search.set("numberOfBedrooms", query.get("bedrooms"));
-  }
-
   if (query.get("minPrice")) {
     search.set("minPrice", query.get("minPrice"));
   }
@@ -145,10 +136,45 @@ function buildGuestyUrl(query, mode) {
 }
 
 function getListingId(listing) {
-  return String(listing._id || listing.id || listing.listingId || "");
+  return String(listing._id || listing.id || listing.listingId || listing.nickname || listing.title || "");
 }
 
-function getImage(listing, fallbackImage) {
+function toNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function cleanText(value) {
+  if (!value) return "";
+
+  if (typeof value === "object") {
+    return cleanText(value.summary || value.space || value.description || value.headline);
+  }
+
+  return String(value)
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function truncate(value, maxLength) {
+  if (!value || value.length <= maxLength) return value;
+  return `${value.slice(0, maxLength).replace(/\s+\S*$/, "")}.`;
+}
+
+function getListingText(listing) {
+  return (
+    cleanText(listing.publicDescription?.summary) ||
+    cleanText(listing.publicDescription) ||
+    cleanText(listing.descriptions?.summary) ||
+    cleanText(listing.descriptions?.space) ||
+    cleanText(listing.description) ||
+    cleanText(listing.marketingDescription) ||
+    ""
+  );
+}
+
+function getImage(listing) {
   const pictures = listing.pictures || listing.photos || [];
   const firstPicture = Array.isArray(pictures) ? pictures[0] : null;
 
@@ -160,89 +186,105 @@ function getImage(listing, fallbackImage) {
     listing.picture?.url ||
     listing.thumbnail ||
     listing.image ||
-    fallbackImage ||
-    "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1400&q=82"
+    fallbackImage
   );
 }
 
-function getPrice(listings, group) {
-  if (group.price) return Number(group.price);
-
-  const nightlyRates = listings.flatMap((listing) => Object.values(listing.nightlyRates || {}));
-  const numericRates = nightlyRates.map(Number).filter((rate) => Number.isFinite(rate) && rate > 0);
+function getPrice(listing) {
+  const nightlyRates = Object.values(listing.nightlyRates || {}).map(Number);
+  const numericRates = nightlyRates.filter((rate) => Number.isFinite(rate) && rate > 0);
 
   if (numericRates.length > 0) {
     return Math.round(numericRates.reduce((total, rate) => total + rate, 0) / numericRates.length);
   }
 
-  return listings.reduce((total, listing) => {
-    const price = Number(listing.price || listing.prices?.basePrice || listing.prices?.base || 0);
-    return total + price;
-  }, 0);
+  return toNumber(listing.price || listing.prices?.basePrice || listing.prices?.base || listing.prices?.nightly);
 }
 
-function getSummary(listings, group) {
-  if (group.summary) return group.summary;
-
-  const [first, second] = listings;
-  const firstTitle = first?.title || first?.nickname || "Unit A";
-  const secondTitle = second?.title || second?.nickname || "Unit B";
-
-  return `A transparent two-unit stay combining ${firstTitle} and ${secondTitle} for larger groups.`;
+function getLocation(listing) {
+  const address = listing.address || {};
+  return [address.city, address.state, address.country].filter(Boolean).join(", ") || "Beach destination";
 }
 
-function createUnitRows(listings) {
-  return listings.map((listing, index) => ({
-    name: listing.title || listing.nickname || `Unit ${String.fromCharCode(65 + index)}`,
-    detail: `${Number(listing.bedrooms || 0)} bedrooms, ${Number(listing.bathrooms || 0)} baths, sleeps ${Number(
-      listing.accommodates || 0,
-    )}`,
-  }));
+function normalizeAmenities(amenities) {
+  if (!Array.isArray(amenities)) return [];
+
+  return amenities
+    .map((amenity) => {
+      if (typeof amenity === "string") return amenity;
+      return amenity.name || amenity.title || amenity.value || "";
+    })
+    .filter(Boolean)
+    .slice(0, 8);
 }
 
-function buildCollections(listings, groups) {
-  const listingsById = new Map(listings.map((listing) => [getListingId(listing), listing]));
+function getListingTags(listing) {
+  if (!Array.isArray(listing.tags)) return [];
 
-  return groups.flatMap((group, index) => {
-    const memberIds = Array.isArray(group.memberIds) ? group.memberIds.map(String) : [];
-    const members = memberIds.map((id) => listingsById.get(id)).filter(Boolean);
+  return listing.tags
+    .map((tag) => {
+      if (typeof tag === "string") return tag;
+      return tag.name || tag.title || "";
+    })
+    .filter(Boolean);
+}
 
-    if (memberIds.length === 0 || members.length !== memberIds.length) {
-      return [];
-    }
+function filterListings(listings) {
+  const allowedIds = (process.env.GUESTY_LISTING_IDS || "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+  const requiredTag = (process.env.GUESTY_LISTING_TAG || "").trim().toLowerCase();
 
-    const amenities = [...new Set(members.flatMap((listing) => listing.amenities || []))].slice(0, 8);
-    const bedrooms = members.reduce((total, listing) => total + Number(listing.bedrooms || 0), 0);
-    const bathrooms = members.reduce((total, listing) => total + Number(listing.bathrooms || 0), 0);
-    const guests = members.reduce((total, listing) => total + Number(listing.accommodates || 0), 0);
-    const first = members[0] || {};
+  return listings.filter((listing) => {
+    const idMatches = allowedIds.length === 0 || allowedIds.includes(getListingId(listing));
+    const tags = getListingTags(listing).map((tag) => tag.toLowerCase());
+    const tagMatches = !requiredTag || tags.includes(requiredTag);
 
-    return [
-      {
-        id: group.id || `guesty-combo-${index + 1}`,
-        title: group.title || `${group.resort || first.address?.city || "Guesty"} ${bedrooms}-Bedroom Combo`,
-        resort: group.resort || first.address?.city || "Guesty",
-        location:
-          group.location ||
-          [first.address?.city, first.address?.state, first.address?.country].filter(Boolean).join(", ") ||
-          "Guesty listing area",
-        badge: group.badge || `Two-unit ${bedrooms}BR stay`,
-        bedrooms,
-        bathrooms,
-        guests,
-        price: getPrice(members, group),
-        image: group.image || getImage(first),
-        imageAlt: group.imageAlt || `${group.title || "Guesty combo stay"} vacation rental`,
-        summary: getSummary(members, group),
-        description:
-          group.description ||
-          "This Guesty-powered combo stay includes two separate nearby units. The quote process confirms both unit calendars before the stay is offered to a guest.",
-        units: Array.isArray(group.units) && group.units.length > 0 ? group.units : createUnitRows(members),
-        amenities: group.amenities || amenities,
-        memberIds,
-      },
-    ];
+    return idMatches && tagMatches;
   });
+}
+
+function normalizeGuestyListing(listing) {
+  const bedrooms = toNumber(listing.bedrooms);
+  const bathrooms = toNumber(listing.bathrooms);
+  const guests = toNumber(listing.accommodates || listing.guests);
+  const text = getListingText(listing);
+  const title = listing.title || listing.nickname || "Guesty combined beach stay";
+
+  return {
+    id: getListingId(listing),
+    title,
+    resort: listing.address?.city || listing.nickname || "VacationRentalExpertz",
+    location: getLocation(listing),
+    badge: bedrooms ? `${bedrooms}BR combined listing` : "Guesty combined listing",
+    bedrooms,
+    bathrooms,
+    guests,
+    price: getPrice(listing),
+    image: getImage(listing),
+    imageAlt: `${title} vacation rental`,
+    summary:
+      truncate(text, 170) ||
+      "A Guesty-managed combined listing for beach groups that want togetherness, value, and wind-down separation.",
+    description:
+      text ||
+      "This stay is maintained in Guesty as one combined, guest-facing listing. The listing description should explain the two-place setup, proximity, and wind-down benefits for guests.",
+    units: [
+      {
+        name: "Combined Guesty listing",
+        detail: `${bedrooms || "Multiple"} bedrooms, ${bathrooms || "multiple"} baths, sleeps ${
+          guests || "your group"
+        }.`,
+      },
+      {
+        name: "Guest-facing setup",
+        detail: "The two-place structure, proximity, and wind-down separation are described directly in Guesty.",
+      },
+    ],
+    amenities: normalizeAmenities(listing.amenities),
+    guestyListingId: getListingId(listing),
+  };
 }
 
 async function fetchGuestyListings(query, mode, token) {
@@ -281,31 +323,17 @@ export default async function handler(request, response) {
 
   try {
     const mode = process.env.GUESTY_API_MODE === "open" ? "open" : "booking";
-    const groups = parseComboGroups();
-
-    if (groups.length === 0) {
-      sendJson(response, 200, {
-        source: "demo",
-        collections: [],
-        message: "Add GUESTY_COMBO_GROUPS to map two Guesty listings into each VacationRentalExpertz combo.",
-      });
-      return;
-    }
-
     const query = getQuery(request);
     const token = await getToken(mode);
-    const listings = await fetchGuestyListings(query, mode, token);
-    const collections = buildCollections(listings, groups);
+    const listings = filterListings(await fetchGuestyListings(query, mode, token));
+    const collections = listings.map(normalizeGuestyListing);
 
     sendJson(response, 200, {
       source: "guesty",
       collections,
       rawCount: listings.length,
       syncedAt: new Date().toISOString(),
-      message:
-        collections.length > 0
-          ? ""
-          : "Guesty returned listings, but no configured two-unit combo had every member available for this search.",
+      message: collections.length > 0 ? "" : "Guesty returned no combined listings for this search.",
     });
   } catch (error) {
     sendJson(response, 500, {

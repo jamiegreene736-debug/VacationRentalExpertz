@@ -39,18 +39,18 @@ const trustPoints = [
 
 const processSteps = [
   {
-    title: "Find The Value",
-    body: "We look for nearby 3-bedroom beach condos that can create a 6-bedroom-style stay without forcing the group into one expensive beachfront house.",
+    title: "Build In Guesty",
+    body: "Your team creates each two-condo beach stay as one combined Guesty listing with the right photos, bedroom count, pricing, and disclosure.",
     icon: <Layers size={22} />,
   },
   {
-    title: "Keep It Close",
-    body: "The pair has to make sense in real life: same resort, same building, or close enough that beach days and pool time still feel shared.",
+    title: "Sync The Stay",
+    body: "The website pulls those already-combined Guesty listings directly, so the site is not trying to pair separate units behind the scenes.",
     icon: <ShieldCheck size={22} />,
   },
   {
-    title: "Protect The Quiet",
-    body: "Two front doors mean families can laugh together all day, then split up for naps, kids' bedtimes, remote work, or a calmer night.",
+    title: "Sell The Story",
+    body: "Each page explains the simple value: beach groups stay close for the fun, save against a giant house, and get separation at night.",
     icon: <DoorOpen size={22} />,
   },
 ];
@@ -60,7 +60,6 @@ const defaultSearch = {
   checkIn: "",
   checkOut: "",
   guests: "12",
-  bedrooms: "6",
 };
 
 function formatCurrency(value) {
@@ -123,7 +122,7 @@ function App() {
         setCollections(fallbackCollections);
         setActiveStay(fallbackCollections[0]);
         setGuestyStatus("demo");
-        setGuestyMessage("Demo listings are showing until Guesty returns matching combo stays.");
+        setGuestyMessage("Demo listings are showing until Guesty returns matching combined listings.");
       } catch (error) {
         if (ignore) return;
 
@@ -297,7 +296,7 @@ function App() {
             </div>
             <div className="live-pill" data-status={guestyStatus}>
               <span />
-              {guestyStatus === "live" ? "Guesty live inventory" : "Guesty-ready demo inventory"}
+              {guestyStatus === "live" ? "Guesty live combined listings" : "Guesty-ready demo inventory"}
             </div>
           </div>
 
@@ -381,8 +380,8 @@ function App() {
         <section className="method-section" id="method">
           <div className="section-heading compact">
             <div>
-              <p className="section-kicker">The Pairing Method</p>
-              <h2>Built for beach groups who love each other, but still need doors.</h2>
+              <p className="section-kicker">The Listing Method</p>
+              <h2>Guesty holds the combined stay. The website makes the value obvious.</h2>
             </div>
           </div>
           <div className="process-grid">
@@ -402,11 +401,11 @@ function App() {
         <section className="guesty-section" id="guesty">
           <div className="guesty-copy">
             <p className="section-kicker">Guesty API Integration</p>
-            <h2>Guesty keeps each condo real while the site sells the group stay.</h2>
+            <h2>The website pulls your combined Guesty listings directly.</h2>
             <p>
               The frontend calls a server-side API route, which requests Guesty listings with your
-              Booking Engine credentials, checks the configured two-unit groups, and returns polished
-              beach condo combos to the page. Secrets stay on the server.
+              Booking Engine credentials and returns your already-combined beach condo listings to
+              the page. Secrets stay on the server.
             </p>
           </div>
           <div className="integration-list">
@@ -422,8 +421,8 @@ function App() {
             </div>
             <div>
               <Waves size={21} />
-              <strong>Resort pairing</strong>
-              <span>Environment-configured groups define which two nearby beach units become one stay.</span>
+              <strong>Combined listings</strong>
+              <span>Guesty remains the place where each two-condo stay is built, priced, and described.</span>
             </div>
           </div>
         </section>

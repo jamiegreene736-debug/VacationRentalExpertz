@@ -17,7 +17,7 @@ npm run build
 
 ## Guesty Integration
 
-Guesty credentials must stay server-side. The browser calls `/api/guesty` by default, and that serverless route requests Guesty inventory, checks configured two-unit groups, and returns combined stays to the React app.
+Guesty credentials must stay server-side. The browser calls `/api/guesty` by default, and that serverless route requests Guesty inventory and returns your already-combined Guesty listings to the React app.
 
 Copy `.env.example` to `.env.local` for local configuration:
 
@@ -33,10 +33,11 @@ GUESTY_API_MODE=booking
 GUESTY_CLIENT_ID=
 GUESTY_CLIENT_SECRET=
 GUESTY_DEFAULT_COUNTRY=United States
-GUESTY_COMBO_GROUPS=[{"id":"azure-six-bedroom","title":"Azure Resort 6-Bedroom Pairing","memberIds":["GUESTY_LISTING_ID_A","GUESTY_LISTING_ID_B"]}]
+GUESTY_LISTING_IDS=
+GUESTY_LISTING_TAG=
 ```
 
-`GUESTY_COMBO_GROUPS` is the key agency-specific mapping. Each combo should list the two Guesty listing IDs that are near each other and safe to market together.
+The site assumes the listings returned from Guesty are already the combined, guest-facing listings. `GUESTY_LISTING_IDS` and `GUESTY_LISTING_TAG` are optional filters in case the Guesty account also contains listings that should not appear on the public website.
 
 ## Deployment Note
 

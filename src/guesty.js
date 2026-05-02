@@ -23,7 +23,6 @@ export const fallbackCollections = [
       { name: "Condo B", detail: "3 bedrooms, full kitchen, balcony, guest suite layout" },
     ],
     amenities: ["Beach access", "Resort pool", "Two kitchens", "Wind-down space", "Balconies", "Washer/dryer"],
-    memberIds: [],
   },
   {
     id: "harbor-eight-bedroom",
@@ -47,7 +46,6 @@ export const fallbackCollections = [
       { name: "Residence B", detail: "4 bedrooms, secondary lounge, dedicated parking" },
     ],
     amenities: ["Beach nearby", "Two living rooms", "Outdoor dining", "Parking", "Fast Wi-Fi", "Quiet bedrooms"],
-    memberIds: [],
   },
   {
     id: "palms-seven-bedroom",
@@ -71,7 +69,6 @@ export const fallbackCollections = [
       { name: "Villa B", detail: "4 bedrooms, larger lounge, private outdoor space" },
     ],
     amenities: ["Pool access", "Two kitchens", "Family rooms", "Self check-in", "Laundry", "Separate nights"],
-    memberIds: [],
   },
 ];
 
@@ -79,23 +76,23 @@ function normalizeCollection(stay) {
   return {
     ...stay,
     id: String(stay.id || stay._id || stay.title),
-    title: stay.title || stay.nickname || "Guesty combo stay",
+    title: stay.title || stay.nickname || "Guesty combined stay",
     resort: stay.resort || stay.address?.city || "VacationRentalExpertz",
     location: stay.location || [stay.address?.city, stay.address?.state, stay.address?.country].filter(Boolean).join(", "),
-    badge: stay.badge || "Two-unit combo",
+    badge: stay.badge || "Guesty combined listing",
     bedrooms: Number(stay.bedrooms || 0),
     bathrooms: Number(stay.bathrooms || 0),
     guests: Number(stay.guests || stay.accommodates || 0),
     price: Number(stay.price || 0),
     image: stay.image || fallbackCollections[0].image,
     imageAlt: stay.imageAlt || `${stay.title || "Vacation rental"} interior`,
-    summary: stay.summary || "A Guesty-powered two-unit stay that gives beach groups room to gather and room to wind down.",
+    summary: stay.summary || "A Guesty-powered combined stay that gives beach groups room to gather and room to wind down.",
     description:
       stay.description ||
-      "This combo stay is powered by Guesty listing data and presented with clear disclosure that the stay includes two nearby units.",
+      "This stay is maintained in Guesty as one combined, guest-facing listing with the two-place setup described for guests.",
     units: Array.isArray(stay.units) && stay.units.length > 0 ? stay.units : fallbackCollections[0].units,
     amenities: Array.isArray(stay.amenities) && stay.amenities.length > 0 ? stay.amenities.slice(0, 8) : fallbackCollections[0].amenities,
-    memberIds: Array.isArray(stay.memberIds) ? stay.memberIds : [],
+    guestyListingId: stay.guestyListingId || stay._id || stay.id || "",
   };
 }
 
@@ -114,7 +111,7 @@ export async function fetchGuestyCollections(search) {
   const contentType = response.headers.get("content-type") || "";
 
   if (!contentType.includes("application/json")) {
-    throw new Error("Guesty-ready demo inventory is showing until the live Guesty proxy is connected.");
+    throw new Error("Guesty-ready demo inventory is showing until the live combined-listing proxy is connected.");
   }
 
   if (!response.ok) {
