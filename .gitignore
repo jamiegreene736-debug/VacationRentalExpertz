@@ -5,3 +5,5 @@ tmp
 .env
 .env.local
 .vercel
+src/assets/brand/vacation-rental-expertz-logo-full.png
+src/assets/brand/vacation-rental-expertz-logo.png

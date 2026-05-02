@@ -1,137 +1,71 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
+  Bath,
+  BedDouble,
+  Building2,
+  CalendarDays,
   Check,
   ChevronRight,
-  Flame,
-  Leaf,
+  DoorOpen,
+  Home,
+  Layers,
+  Mail,
+  MapPin,
   Menu,
-  Minus,
-  PackageCheck,
-  Plus,
-  Scale,
-  ShoppingBag,
+  Search,
+  ShieldCheck,
   Sparkles,
-  Sprout,
+  Users,
+  Waves,
   X,
 } from "lucide-react";
-import heroImage from "./assets/mill-hero.png";
-import logoImage from "./assets/the-milled-table-logo.jpeg";
-import breadFlourImage from "./assets/products/bread-flour.jpg";
-import durumSemolinaImage from "./assets/products/durum-semolina.jpg";
-import einkornFlourImage from "./assets/products/einkorn-flour.jpg";
-import pastaBlendImage from "./assets/products/pasta-blend.jpg";
-import pastryFlourImage from "./assets/products/pastry-flour.jpg";
-import ryeFlourImage from "./assets/products/rye-flour.jpg";
+import logoImage from "./assets/brand/vacation-rental-expertz-header.svg";
+import mobileLogoImage from "./assets/brand/vacation-rental-expertz-header-mobile.svg";
+import { fallbackCollections, fetchGuestyCollections } from "./guesty";
 
-const shopifyDomain = import.meta.env.VITE_SHOPIFY_STORE_DOMAIN || "";
-
-const products = [
-  {
-    id: "bread",
-    name: "Stone-Milled Bread Flour",
-    grain: "Hard red spring wheat",
-    use: "Bread",
-    price: 14,
-    weight: "2 lb bag",
-    badge: "High gluten",
-    flavor: "Creamy wheat, toasted crust, open crumb",
-    color: "#b88f4d",
-    image: breadFlourImage,
-    variantId: import.meta.env.VITE_SHOPIFY_BREAD_VARIANT_ID,
-  },
-  {
-    id: "semolina",
-    name: "Fresh Durum Semolina",
-    grain: "Organic durum wheat",
-    use: "Pasta",
-    price: 16,
-    weight: "2 lb bag",
-    badge: "Pasta cut",
-    flavor: "Golden color, firm bite, nutty finish",
-    color: "#d9a93a",
-    image: durumSemolinaImage,
-    variantId: import.meta.env.VITE_SHOPIFY_SEMOLINA_VARIANT_ID,
-  },
-  {
-    id: "einkorn",
-    name: "Heritage Einkorn Flour",
-    grain: "Ancient einkorn",
-    use: "Pastry",
-    price: 18,
-    weight: "1.5 lb bag",
-    badge: "Ancient grain",
-    flavor: "Delicate sweetness, soft crumb, buttery aroma",
-    color: "#c17442",
-    image: einkornFlourImage,
-    variantId: import.meta.env.VITE_SHOPIFY_EINKORN_VARIANT_ID,
-  },
-  {
-    id: "rye",
-    name: "Whole Rye Flour",
-    grain: "Organic rye berries",
-    use: "Bread",
-    price: 13,
-    weight: "2 lb bag",
-    badge: "Whole grain",
-    flavor: "Earthy, malty, deep color",
-    color: "#6f6149",
-    image: ryeFlourImage,
-    variantId: import.meta.env.VITE_SHOPIFY_RYE_VARIANT_ID,
-  },
-  {
-    id: "pasta",
-    name: "Pasta Table Blend",
-    grain: "Durum and hard white wheat",
-    use: "Pasta",
-    price: 15,
-    weight: "2 lb bag",
-    badge: "Silky dough",
-    flavor: "Smooth sheet, sturdy noodle, warm grain",
-    color: "#d1b45f",
-    image: pastaBlendImage,
-    variantId: import.meta.env.VITE_SHOPIFY_PASTA_VARIANT_ID,
-  },
-  {
-    id: "pastry",
-    name: "Soft Wheat Pastry Flour",
-    grain: "Organic soft white wheat",
-    use: "Pastry",
-    price: 12,
-    weight: "2 lb bag",
-    badge: "Low protein",
-    flavor: "Tender cakes, biscuits, and laminated dough",
-    color: "#d7c191",
-    image: pastryFlourImage,
-    variantId: import.meta.env.VITE_SHOPIFY_PASTRY_VARIANT_ID,
-  },
+const stats = [
+  { value: "2x", label: "nearby beach condos instead of one oversized house" },
+  { value: "6BR", label: "group-size comfort without the beachfront mansion price" },
+  { value: "2 doors", label: "close for the fun, separate for wind-down time" },
 ];
 
-const categories = ["All", "Bread", "Pasta", "Pastry"];
-
-const promises = [
-  "Organic grain lots selected for flavor and clean growing practices",
-  "A no-glyphosate-desiccation sourcing standard",
-  "Proper milling in smaller batches for aroma, nutrition, and dough feel",
-  "Flours chosen by use case: pasta, bread, pastry, pizza, and daily baking",
+const trustPoints = [
+  "Two 3-bedroom beach condos are often far easier on the budget than a rare 6-bedroom beach house.",
+  "Your group stays in the same resort, building, or walkable beach cluster for pool days, beach runs, and shared meals.",
+  "When the day winds down, everyone gets useful separation: two kitchens, two living rooms, and quieter sleeping zones.",
+  "Every combo clearly discloses that the stay is made from two separate nearby units.",
 ];
 
 const processSteps = [
   {
-    title: "Import",
-    body: "Organic grains arrive as whole berries, chosen by harvest, protein, and flavor.",
+    title: "Find The Value",
+    body: "We look for nearby 3-bedroom beach condos that can create a 6-bedroom-style stay without forcing the group into one expensive beachfront house.",
+    icon: <Layers size={22} />,
   },
   {
-    title: "Mill",
-    body: "A dedicated miller stone mills the grain slowly so flour stays fragrant and alive.",
+    title: "Keep It Close",
+    body: "The pair has to make sense in real life: same resort, same building, or close enough that beach days and pool time still feel shared.",
+    icon: <ShieldCheck size={22} />,
   },
   {
-    title: "Bake",
-    body: "You get flour matched to the table: pasta, bread, pastry, pizza, and more.",
+    title: "Protect The Quiet",
+    body: "Two front doors mean families can laugh together all day, then split up for naps, kids' bedtimes, remote work, or a calmer night.",
+    icon: <DoorOpen size={22} />,
   },
 ];
 
+const defaultSearch = {
+  city: "",
+  checkIn: "",
+  checkOut: "",
+  guests: "12",
+  bedrooms: "6",
+};
+
 function formatCurrency(value) {
+  if (!value) return "Quote";
+
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -139,99 +73,98 @@ function formatCurrency(value) {
   }).format(value);
 }
 
-function normalizeShopifyDomain(value) {
-  if (!value) return "";
-  return value.startsWith("http") ? value.replace(/\/$/, "") : `https://${value.replace(/\/$/, "")}`;
-}
-
-function buildShopifyCartUrl(cart) {
-  const lines = cart
-    .map((item) => {
-      const product = products.find((entry) => entry.id === item.id);
-      if (!product?.variantId) return null;
-      return `${product.variantId}:${item.quantity}`;
-    })
-    .filter(Boolean);
-
-  if (!shopifyDomain || lines.length === 0) return "";
-
+function createInquiryUrl(stay, search) {
   const params = new URLSearchParams({
-    utm_source: "themilledtable",
-    utm_medium: "site",
-    utm_campaign: "fresh_milled_launch",
+    subject: `Quote request: ${stay.title}`,
+    body: [
+      `I'm interested in ${stay.title}.`,
+      "",
+      `Location: ${stay.location}`,
+      `Dates: ${search.checkIn || "Flexible"} to ${search.checkOut || "Flexible"}`,
+      `Guests: ${search.guests || "Flexible"}`,
+      `Bedroom target: ${search.bedrooms || stay.bedrooms}`,
+      "",
+      "Please send availability, pricing, and the details for both included units.",
+    ].join("\n"),
   });
 
-  return `${normalizeShopifyDomain(shopifyDomain)}/cart/${lines.join(",")}?${params.toString()}`;
+  return `mailto:stays@vacationrentalexpertz.com?${params.toString()}`;
 }
 
 function App() {
-  const [activeCategory, setActiveCategory] = useState("All");
-  const [cart, setCart] = useState([]);
-  const [cartOpen, setCartOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [notice, setNotice] = useState("");
+  const [search, setSearch] = useState(defaultSearch);
+  const [submittedSearch, setSubmittedSearch] = useState(defaultSearch);
+  const [collections, setCollections] = useState(fallbackCollections);
+  const [guestyStatus, setGuestyStatus] = useState("idle");
+  const [guestyMessage, setGuestyMessage] = useState("");
+  const [activeStay, setActiveStay] = useState(fallbackCollections[0]);
 
-  const visibleProducts = useMemo(() => {
-    if (activeCategory === "All") return products;
-    return products.filter((product) => product.use === activeCategory);
-  }, [activeCategory]);
+  useEffect(() => {
+    let ignore = false;
 
-  const cartItems = useMemo(
-    () =>
-      cart.map((item) => ({
-        ...item,
-        product: products.find((product) => product.id === item.id),
-      })),
-    [cart],
-  );
+    async function loadCollections() {
+      setGuestyStatus("loading");
+      setGuestyMessage("");
 
-  const itemCount = cart.reduce((total, item) => total + item.quantity, 0);
-  const subtotal = cartItems.reduce((total, item) => total + item.product.price * item.quantity, 0);
-  const checkoutUrl = buildShopifyCartUrl(cart);
+      try {
+        const response = await fetchGuestyCollections(submittedSearch);
 
-  function addToCart(productId) {
-    setCart((items) => {
-      const current = items.find((item) => item.id === productId);
-      if (current) {
-        return items.map((item) =>
-          item.id === productId ? { ...item, quantity: item.quantity + 1 } : item,
-        );
+        if (ignore) return;
+
+        if (response.collections.length > 0) {
+          setCollections(response.collections);
+          setActiveStay(response.collections[0]);
+          setGuestyStatus(response.source === "guesty" ? "live" : "demo");
+          setGuestyMessage(response.message || "");
+          return;
+        }
+
+        setCollections(fallbackCollections);
+        setActiveStay(fallbackCollections[0]);
+        setGuestyStatus("demo");
+        setGuestyMessage("Demo listings are showing until Guesty returns matching combo stays.");
+      } catch (error) {
+        if (ignore) return;
+
+        setCollections(fallbackCollections);
+        setActiveStay(fallbackCollections[0]);
+        setGuestyStatus("demo");
+        setGuestyMessage(error.message || "Demo listings are showing until Guesty is connected.");
       }
-      return [...items, { id: productId, quantity: 1 }];
-    });
-    setCartOpen(true);
-    setNotice("Added to basket");
-    window.setTimeout(() => setNotice(""), 1600);
-  }
+    }
 
-  function updateQuantity(productId, direction) {
-    setCart((items) =>
-      items
-        .map((item) =>
-          item.id === productId
-            ? { ...item, quantity: Math.max(0, item.quantity + direction) }
-            : item,
-        )
-        .filter((item) => item.quantity > 0),
+    loadCollections();
+
+    return () => {
+      ignore = true;
+    };
+  }, [submittedSearch]);
+
+  const visibleCollections = useMemo(() => {
+    if (!submittedSearch.city.trim()) return collections;
+
+    return collections.filter((stay) =>
+      `${stay.title} ${stay.location} ${stay.resort}`.toLowerCase().includes(submittedSearch.city.toLowerCase()),
     );
+  }, [collections, submittedSearch.city]);
+
+  function updateSearch(event) {
+    const { name, value } = event.target;
+    setSearch((current) => ({ ...current, [name]: value }));
   }
 
-  function handleCheckout(event) {
-    if (checkoutUrl) return;
+  function handleSearch(event) {
     event.preventDefault();
-    setNotice("Add Shopify store domain and variant IDs to enable checkout");
-    window.setTimeout(() => setNotice(""), 2400);
+    setSubmittedSearch(search);
   }
 
   return (
     <div className="site-shell">
       <header className="site-header" data-open={menuOpen}>
-        <a className="brand-mark" href="#top" aria-label="The Milled Table home">
-          <img className="brand-logo" src={logoImage} alt="" />
-          <span className="brand-copy">
-            <strong>The Milled</strong>
-            <small>Table</small>
-          </span>
+        <a className="brand-lockup" href="#top" aria-label="VacationRentalExpertz home">
+          <img className="brand-logo brand-logo-desktop" src={logoImage} alt="VacationRentalExpertz" />
+          <img className="brand-logo brand-logo-mobile" src={mobileLogoImage} alt="" aria-hidden="true" />
         </a>
 
         <button className="icon-button menu-button" type="button" onClick={() => setMenuOpen(!menuOpen)}>
@@ -240,132 +173,173 @@ function App() {
         </button>
 
         <nav className="site-nav" aria-label="Main navigation">
-          <a href="#flours" onClick={() => setMenuOpen(false)}>
-            Flours
+          <a href="#stays" onClick={() => setMenuOpen(false)}>
+            Combo stays
           </a>
-          <a href="#milling" onClick={() => setMenuOpen(false)}>
-            Milling
+          <a href="#method" onClick={() => setMenuOpen(false)}>
+            Method
           </a>
-          <a href="#standards" onClick={() => setMenuOpen(false)}>
-            Standards
+          <a href="#guesty" onClick={() => setMenuOpen(false)}>
+            Guesty sync
           </a>
           <a href="#contact" onClick={() => setMenuOpen(false)}>
             Contact
           </a>
         </nav>
 
-        <button className="cart-button" type="button" onClick={() => setCartOpen(true)}>
-          <ShoppingBag size={18} />
-          <span>Basket</span>
-          <strong>{itemCount}</strong>
-        </button>
+        <a className="header-action" href="#stays">
+          <Search size={17} />
+          Check dates
+        </a>
       </header>
 
       <main id="top">
-        <section className="hero-section" aria-label="The Milled Table">
-          <img className="hero-image" src={heroImage} alt="" />
+        <section className="hero-section" aria-label="VacationRentalExpertz">
+          <img
+            className="hero-image"
+            src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2200&q=86"
+            alt=""
+          />
           <div className="hero-overlay" />
           <div className="hero-content">
             <p className="eyebrow">
-              <Sprout size={16} />
-              Organic grain, properly milled
+              <Sparkles size={16} />
+              Same beach. Better value. Breathing room.
             </p>
-            <h1>
-              The Milled
-              <span>Table</span>
+            <h1 aria-label="Two Condos. One Beach Stay.">
+              <span className="hero-name-part">Two Condos.</span>
+              <span className="hero-name-part">One Beach</span>
+              <span className="hero-name-part">Stay.</span>
             </h1>
             <p className="hero-copy">
-              Fresh flour for bread, pasta, pastry, and daily baking, stone milled from organic
-              whole grains selected for clean growing practices and deep flavor.
+              Six-bedroom beach houses can be painfully expensive. We pair two nearby 3-bedroom
+              condos so your group stays together for the beach days, dinners, and memories, then
+              gets just enough separation when it is time to wind down.
             </p>
             <div className="hero-actions">
-              <a className="primary-action" href="#flours">
-                Shop flours
+              <a className="primary-action" href="#stays">
+                Find smarter beach stays
                 <ArrowRight size={18} />
               </a>
-              <a className="secondary-action" href="#standards">
-                Our standard
+              <a className="secondary-action" href="#method">
+                See the two-condo method
                 <ChevronRight size={17} />
               </a>
             </div>
           </div>
-          <div className="hero-proof" aria-label="Milling standards">
-            <span>
-              <Leaf size={17} />
-              Organic grain
-            </span>
-            <span>
-              <Scale size={17} />
-              Small batches
-            </span>
-            <span>
-              <PackageCheck size={17} />
-              Table-ready flour
-            </span>
-          </div>
+
+          <form className="search-panel" aria-label="Search combo stays" onSubmit={handleSearch}>
+            <label>
+              <span>Destination</span>
+              <input
+                name="city"
+                type="search"
+                placeholder="Beach, resort, city"
+                value={search.city}
+                onChange={updateSearch}
+              />
+            </label>
+            <label>
+              <span>Check in</span>
+              <input name="checkIn" type="date" value={search.checkIn} onChange={updateSearch} />
+            </label>
+            <label>
+              <span>Check out</span>
+              <input name="checkOut" type="date" value={search.checkOut} onChange={updateSearch} />
+            </label>
+            <label>
+              <span>Guests</span>
+              <input name="guests" type="number" min="1" max="32" value={search.guests} onChange={updateSearch} />
+            </label>
+            <button type="submit">
+              <Search size={18} />
+              Search
+            </button>
+          </form>
         </section>
 
-        <section className="intro-band" id="standards">
-          <div className="section-kicker">The Standard</div>
-          <div className="intro-grid">
-            <h2>Flour should taste like the field it came from, not the warehouse it sat in.</h2>
-            <div className="intro-copy">
-              <p>
-                The Milled Table is built around whole organic grains, transparent lots, and
-                milling close to when you bake. Our sourcing avoids glyphosate desiccation and
-                keeps the emphasis where it belongs: grain variety, harvest quality, and the feel
-                of the dough in your hands.
-              </p>
-              <ul className="promise-list">
-                {promises.map((promise) => (
-                  <li key={promise}>
-                    <Check size={17} />
-                    {promise}
-                  </li>
-                ))}
-              </ul>
+        <section className="proof-strip" aria-label="VacationRentalExpertz highlights">
+          {stats.map((item) => (
+            <div className="stat-item" key={item.label}>
+              <strong>{item.value}</strong>
+              <span>{item.label}</span>
             </div>
+          ))}
+        </section>
+
+        <section className="intro-section">
+          <div>
+            <p className="section-kicker">The Smarter Beach Play</p>
+            <h2>Close enough for the fun. Separate enough for the quiet.</h2>
+          </div>
+          <div className="intro-copy">
+            <p>
+              A true 6-bedroom house on the beach can price out the whole trip. VacationRentalExpertz
+              packages compatible nearby condos as one clear group option, so families and friends
+              can stay close for the fun while still having space to reset when the day gets long.
+            </p>
+            <ul className="trust-list">
+              {trustPoints.map((point) => (
+                <li key={point}>
+                  <Check size={18} />
+                  {point}
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 
-        <section className="product-section" id="flours">
+        <section className="stays-section" id="stays">
           <div className="section-heading">
             <div>
-              <p className="section-kicker">Fresh Flour Drops</p>
-              <h2>Choose by what you are making.</h2>
+              <p className="section-kicker">Beach Condo Combos</p>
+              <h2>Skip the mansion markup. Keep the beachfront feeling.</h2>
             </div>
-            <div className="category-tabs" aria-label="Filter flour by use">
-              {categories.map((category) => (
-                <button
-                  className={activeCategory === category ? "active" : ""}
-                  key={category}
-                  type="button"
-                  onClick={() => setActiveCategory(category)}
-                >
-                  {category}
-                </button>
-              ))}
+            <div className="live-pill" data-status={guestyStatus}>
+              <span />
+              {guestyStatus === "live" ? "Guesty live inventory" : "Guesty-ready demo inventory"}
             </div>
           </div>
 
-          <div className="product-grid">
-            {visibleProducts.map((product) => (
-              <article className="product-card" key={product.id}>
-                <img className="product-photo" src={product.image} alt={`${product.name} grains and flour`} />
-                <div className="product-card-body">
-                  <div className="product-meta">
-                    <span>{product.badge}</span>
-                    <span>{product.weight}</span>
+          {guestyMessage && <p className="sync-note">{guestyMessage}</p>}
+
+          <div className="collection-grid">
+            {visibleCollections.map((stay) => (
+              <article className="stay-card" key={stay.id}>
+                <button className="stay-image-button" type="button" onClick={() => setActiveStay(stay)}>
+                  <img src={stay.image} alt={stay.imageAlt} />
+                  <span>{stay.badge}</span>
+                </button>
+                <div className="stay-body">
+                  <div className="stay-location">
+                    <MapPin size={16} />
+                    {stay.location}
                   </div>
-                  <h3>{product.name}</h3>
-                  <p className="grain-name">{product.grain}</p>
-                  <p>{product.flavor}</p>
+                  <h3>{stay.title}</h3>
+                  <p>{stay.summary}</p>
+                  <div className="stay-metrics" aria-label={`${stay.title} details`}>
+                    <span>
+                      <BedDouble size={17} />
+                      {stay.bedrooms} bedrooms
+                    </span>
+                    <span>
+                      <Bath size={17} />
+                      {stay.bathrooms} baths
+                    </span>
+                    <span>
+                      <Users size={17} />
+                      Sleeps {stay.guests}
+                    </span>
+                  </div>
                 </div>
-                <div className="product-footer">
-                  <strong>{formatCurrency(product.price)}</strong>
-                  <button type="button" onClick={() => addToCart(product.id)}>
-                    <Plus size={17} />
-                    Add
+                <div className="stay-footer">
+                  <strong>
+                    {formatCurrency(stay.price)}
+                    {stay.price ? <small>/night from</small> : <small>prepared by team</small>}
+                  </strong>
+                  <button type="button" onClick={() => setActiveStay(stay)}>
+                    Details
+                    <ArrowRight size={17} />
                   </button>
                 </div>
               </article>
@@ -373,20 +347,51 @@ function App() {
           </div>
         </section>
 
-        <section className="milling-section" id="milling">
-          <div className="milling-copy">
-            <p className="section-kicker">Proper Milling</p>
-            <h2>Whole berries in. Living flour out.</h2>
-            <p>
-              Milling is not just grinding. It is a choice of stone, speed, temperature, sift, and
-              timing. We keep the germ and aroma in the conversation so every bag has a real job at
-              the table.
-            </p>
+        <section className="detail-section" aria-label="Selected combo stay details">
+          <div className="detail-media">
+            <img src={activeStay.image} alt={activeStay.imageAlt} />
           </div>
-          <div className="process-track">
+          <div className="detail-copy">
+            <p className="section-kicker">Current Selection</p>
+            <h2>{activeStay.title}</h2>
+            <p>{activeStay.description}</p>
+            <div className="unit-list">
+              {activeStay.units.map((unit) => (
+                <div className="unit-row" key={unit.name}>
+                  <Home size={19} />
+                  <div>
+                    <strong>{unit.name}</strong>
+                    <span>{unit.detail}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="amenity-cloud" aria-label="Included amenities">
+              {activeStay.amenities.map((amenity) => (
+                <span key={amenity}>{amenity}</span>
+              ))}
+            </div>
+            <a className="primary-action dark" href={createInquiryUrl(activeStay, submittedSearch)}>
+              Request this combo
+              <Mail size={18} />
+            </a>
+          </div>
+        </section>
+
+        <section className="method-section" id="method">
+          <div className="section-heading compact">
+            <div>
+              <p className="section-kicker">The Pairing Method</p>
+              <h2>Built for beach groups who love each other, but still need doors.</h2>
+            </div>
+          </div>
+          <div className="process-grid">
             {processSteps.map((step, index) => (
-              <article className="process-step" key={step.title}>
-                <span>{String(index + 1).padStart(2, "0")}</span>
+              <article className="process-card" key={step.title}>
+                <div className="process-top">
+                  {step.icon}
+                  <span>{String(index + 1).padStart(2, "0")}</span>
+                </div>
                 <h3>{step.title}</h3>
                 <p>{step.body}</p>
               </article>
@@ -394,131 +399,58 @@ function App() {
           </div>
         </section>
 
-        <section className="use-section">
-          <div className="use-panel">
-            <div>
-              <p className="section-kicker">For Bread</p>
-              <h2>Strength, aroma, and a crust worth waiting for.</h2>
-            </div>
+        <section className="guesty-section" id="guesty">
+          <div className="guesty-copy">
+            <p className="section-kicker">Guesty API Integration</p>
+            <h2>Guesty keeps each condo real while the site sells the group stay.</h2>
             <p>
-              Hard wheat flours are milled for sourdough, enriched dough, focaccia, pizza, and
-              everyday loaves where protein and flavor both matter.
+              The frontend calls a server-side API route, which requests Guesty listings with your
+              Booking Engine credentials, checks the configured two-unit groups, and returns polished
+              beach condo combos to the page. Secrets stay on the server.
             </p>
           </div>
-          <div className="use-panel accent">
+          <div className="integration-list">
             <div>
-              <p className="section-kicker">For Pasta</p>
-              <h2>Golden semolina and blends for dough that holds its shape.</h2>
+              <Building2 size={21} />
+              <strong>Listing data</strong>
+              <span>Titles, photos, amenities, address fields, bedrooms, baths, and occupancy.</span>
             </div>
-            <p>
-              Durum and pasta-focused blends bring structure to extruded shapes, fresh sheets,
-              gnocchi, and hand-cut noodles.
-            </p>
+            <div>
+              <CalendarDays size={21} />
+              <strong>Date-aware search</strong>
+              <span>Guesty check-in and check-out filters keep combos tied to unit availability.</span>
+            </div>
+            <div>
+              <Waves size={21} />
+              <strong>Resort pairing</strong>
+              <span>Environment-configured groups define which two nearby beach units become one stay.</span>
+            </div>
           </div>
         </section>
 
-        <section className="newsletter-section" id="contact">
+        <section className="contact-section" id="contact">
           <div>
-            <p className="section-kicker">Mill Notes</p>
-            <h2>Fresh drops, lot notes, and wholesale milling updates.</h2>
+            <p className="section-kicker">Plan A Group Stay</p>
+            <h2>Tell us the beach, headcount, and dates. We will find the right two-condo fit.</h2>
           </div>
-          <form
-            className="signup-form"
-            action="mailto:hello@themilledtable.com"
-            method="post"
-            encType="text/plain"
-          >
-            <label className="sr-only" htmlFor="email">
-              Email address
-            </label>
-            <input id="email" name="email" type="email" placeholder="you@example.com" required />
-            <button type="submit">
-              <Sparkles size={17} />
-              Join list
-            </button>
-          </form>
+          <a className="contact-button" href="mailto:stays@vacationrentalexpertz.com">
+            <Mail size={18} />
+            stays@vacationrentalexpertz.com
+          </a>
         </section>
       </main>
 
       <footer className="site-footer">
         <div>
-          <strong>The Milled Table</strong>
-          <p>Organic grains, proper milling, fresh flour.</p>
+          <strong>VacationRentalExpertz</strong>
+          <p>Two places. One amazing beach stay.</p>
         </div>
         <div className="footer-links">
-          <a href="mailto:hello@themilledtable.com">hello@themilledtable.com</a>
-          <a href="https://www.themilledtable.com">www.themilledtable.com</a>
+          <a href="#stays">Combo stays</a>
+          <a href="#guesty">Guesty sync</a>
+          <a href="mailto:stays@vacationrentalexpertz.com">Contact</a>
         </div>
       </footer>
-
-      <aside className="cart-drawer" data-open={cartOpen} aria-hidden={!cartOpen}>
-        <div className="drawer-panel" role="dialog" aria-modal="true" aria-label="Basket">
-          <div className="drawer-header">
-            <div>
-              <p className="section-kicker">Basket</p>
-              <h2>Fresh flour order</h2>
-            </div>
-            <button className="icon-button" type="button" onClick={() => setCartOpen(false)}>
-              <X size={20} />
-              <span className="sr-only">Close basket</span>
-            </button>
-          </div>
-
-          <div className="drawer-items">
-            {cartItems.length === 0 ? (
-              <div className="empty-cart">
-                <Flame size={22} />
-                <p>Your basket is ready for a fresh milling drop.</p>
-              </div>
-            ) : (
-              cartItems.map(({ product, quantity }) => (
-                <div className="cart-line" key={product.id}>
-                  <div>
-                    <strong>{product.name}</strong>
-                    <span>
-                      {product.weight} · {formatCurrency(product.price)}
-                    </span>
-                  </div>
-                  <div className="quantity-controls">
-                    <button type="button" onClick={() => updateQuantity(product.id, -1)}>
-                      <Minus size={15} />
-                    </button>
-                    <span>{quantity}</span>
-                    <button type="button" onClick={() => updateQuantity(product.id, 1)}>
-                      <Plus size={15} />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          <div className="drawer-footer">
-            <div className="subtotal-row">
-              <span>Subtotal</span>
-              <strong>{formatCurrency(subtotal)}</strong>
-            </div>
-            <a
-              className={`checkout-button ${checkoutUrl ? "" : "disabled"}`}
-              href={checkoutUrl || "#flours"}
-              onClick={handleCheckout}
-            >
-              Checkout with Shopify
-              <ArrowRight size={18} />
-            </a>
-            {!checkoutUrl && (
-              <p className="checkout-note">Checkout activates when Shopify variant IDs are added.</p>
-            )}
-          </div>
-        </div>
-        <button className="drawer-backdrop" type="button" onClick={() => setCartOpen(false)}>
-          <span className="sr-only">Close basket</span>
-        </button>
-      </aside>
-
-      <div className="toast" data-visible={Boolean(notice)} aria-live="polite">
-        {notice}
-      </div>
     </div>
   );
 }
