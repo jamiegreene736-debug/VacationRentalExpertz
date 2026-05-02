@@ -4,7 +4,6 @@ import {
   Bath,
   BedDouble,
   Building2,
-  CalendarDays,
   Check,
   ChevronRight,
   DoorOpen,
@@ -14,10 +13,8 @@ import {
   MapPin,
   Menu,
   Search,
-  ShieldCheck,
   Sparkles,
   Users,
-  Waves,
   X,
 } from "lucide-react";
 import logoImage from "./assets/brand/vacation-rental-expertz-header.svg";
@@ -39,14 +36,14 @@ const trustPoints = [
 
 const processSteps = [
   {
-    title: "Build In Guesty",
-    body: "Your team creates each two-condo beach stay as one combined Guesty listing with the right photos, bedroom count, pricing, and disclosure.",
+    title: "Curate The Stay",
+    body: "Each two-condo beach stay is presented as one clear group option with the right photos, bedroom count, pricing, and disclosure.",
     icon: <Layers size={22} />,
   },
   {
-    title: "Sync The Stay",
-    body: "The website pulls those already-combined Guesty listings directly, so the site is not trying to pair separate units behind the scenes.",
-    icon: <ShieldCheck size={22} />,
+    title: "Keep It Current",
+    body: "Availability, photos, details, and rates stay connected to the live listing data, so guests see real options instead of stale filler.",
+    icon: <Check size={22} />,
   },
   {
     title: "Sell The Story",
@@ -73,11 +70,11 @@ function formatCurrency(value) {
 }
 
 function getStatusLabel(status) {
-  if (status === "loading") return "Loading Guesty listings";
-  if (status === "live") return "Guesty listings live";
-  if (status === "empty") return "No Guesty listings found";
-  if (status === "error") return "Guesty connection needs attention";
-  return "Connecting to Guesty";
+  if (status === "loading") return "Loading stays";
+  if (status === "live") return "Live stays";
+  if (status === "empty") return "No stays found";
+  if (status === "error") return "Listings unavailable";
+  return "Checking stays";
 }
 
 function formatMetric(value, singular, plural = `${singular}s`) {
@@ -127,14 +124,18 @@ function App() {
         setCollections(response.collections);
         setActiveStay(response.collections[0] || null);
         setGuestyStatus(response.collections.length > 0 ? "live" : "empty");
-        setGuestyMessage(response.message || "");
+        setGuestyMessage(
+          response.collections.length > 0
+            ? ""
+            : "No matching stays are available right now. Try changing your search or contact us for current options.",
+        );
       } catch (error) {
         if (ignore) return;
 
         setCollections([]);
         setActiveStay(null);
         setGuestyStatus("error");
-        setGuestyMessage(error.message || "Guesty inventory could not be loaded.");
+        setGuestyMessage("Live stays are temporarily unavailable. Contact us and we will send current options.");
       }
     }
 
@@ -182,9 +183,6 @@ function App() {
           </a>
           <a href="#method" onClick={() => setMenuOpen(false)}>
             Method
-          </a>
-          <a href="#guesty" onClick={() => setMenuOpen(false)}>
-            Guesty sync
           </a>
           <a href="#contact" onClick={() => setMenuOpen(false)}>
             Contact
@@ -310,12 +308,12 @@ function App() {
           {visibleCollections.length === 0 ? (
             <div className="empty-state" data-status={guestyStatus}>
               <Building2 size={28} />
-              <h3>{guestyStatus === "loading" ? "Pulling your Guesty listings" : "No live Guesty listings to show yet"}</h3>
+              <h3>{guestyStatus === "loading" ? "Finding live stays" : "No live stays to show yet"}</h3>
               <p>
                 {guestyStatus === "loading"
-                  ? "The site is asking Guesty for your real property data."
+                  ? "The site is checking current stay options."
                   : guestyMessage ||
-                    "No placeholder properties are being shown. Once Guesty returns listings, this section will fill with your real inventory."}
+                    "No placeholder properties are being shown. Once live stays are available, this section will fill with real inventory."}
               </p>
             </div>
           ) : (
@@ -335,7 +333,7 @@ function App() {
                       ) : (
                         <span className="photo-missing">
                           <Building2 size={24} />
-                          Photo missing in Guesty
+                          Photo coming soon
                         </span>
                       )}
                       {stay.badge && <span className="stay-badge">{stay.badge}</span>}
@@ -363,7 +361,7 @@ function App() {
                     <div className="stay-footer">
                       <strong>
                         {formatCurrency(stay.price)}
-                        {stay.price ? <small>/night from Guesty</small> : <small>pricing from Guesty</small>}
+                        {stay.price ? <small>/night from listing</small> : <small>pricing on request</small>}
                       </strong>
                       <button type="button" onClick={() => setActiveStay(stay)}>
                         Details
@@ -385,7 +383,7 @@ function App() {
               ) : (
                 <div className="detail-photo-missing">
                   <Building2 size={34} />
-                  Photo missing in Guesty
+                  Photo coming soon
                 </div>
               )}
             </div>
@@ -425,7 +423,7 @@ function App() {
           <div className="section-heading compact">
             <div>
               <p className="section-kicker">The Listing Method</p>
-              <h2>Guesty holds the combined stay. The website makes the value obvious.</h2>
+              <h2>The stay is simple to understand. The value is easy to see.</h2>
             </div>
           </div>
           <div className="process-grid">
@@ -439,35 +437,6 @@ function App() {
                 <p>{step.body}</p>
               </article>
             ))}
-          </div>
-        </section>
-
-        <section className="guesty-section" id="guesty">
-          <div className="guesty-copy">
-            <p className="section-kicker">Guesty API Integration</p>
-            <h2>The website pulls your combined Guesty listings directly.</h2>
-            <p>
-              The frontend calls a server-side API route, which requests Guesty listings with your
-              Booking Engine credentials and returns your already-combined beach condo listings to
-              the page. Secrets stay on the server.
-            </p>
-          </div>
-          <div className="integration-list">
-            <div>
-              <Building2 size={21} />
-              <strong>Listing data</strong>
-              <span>Titles, photos, amenities, address fields, bedrooms, baths, and occupancy.</span>
-            </div>
-            <div>
-              <CalendarDays size={21} />
-              <strong>Date-aware search</strong>
-              <span>Guesty check-in and check-out filters keep combos tied to unit availability.</span>
-            </div>
-            <div>
-              <Waves size={21} />
-              <strong>Combined listings</strong>
-              <span>Guesty remains the place where each two-condo stay is built, priced, and described.</span>
-            </div>
           </div>
         </section>
 
@@ -490,7 +459,6 @@ function App() {
         </div>
         <div className="footer-links">
           <a href="#stays">Combo stays</a>
-          <a href="#guesty">Guesty sync</a>
           <a href="mailto:stays@vacationrentalexpertz.com">Contact</a>
         </div>
       </footer>
