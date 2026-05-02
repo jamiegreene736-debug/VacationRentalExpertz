@@ -33,6 +33,26 @@ let tokenCache = {
   expiresAt: 0,
 };
 
+function cleanEnvValue(value) {
+  return String(value || "")
+    .trim()
+    .replace(/^["']|["']$/g, "");
+}
+
+function createGuestyAuthError(mode, status, detail) {
+  const apiName = mode === "open" ? "Open API" : "Booking Engine API";
+  const error = new Error(
+    `Guesty authentication failed for ${apiName}${status ? ` (HTTP ${status})` : ""}.${
+      detail ? ` Guesty said: ${detail}` : ""
+    }`,
+  );
+
+  error.isGuestyAuthError = true;
+  error.mode = mode;
+
+  return error;
+}
+
 function sendJson(response, status, payload) {
   response.statusCode = status;
   response.setHeader("Content-Type", "application/json");
@@ -52,8 +72,8 @@ async function getToken(mode) {
     return tokenCache.token;
   }
 
-  const clientId = process.env.GUESTY_CLIENT_ID;
-  const clientSecret = process.env.GUESTY_CLIENT_SECRET;
+  const clientId = cleanEnvValue(process.env.GUESTY_CLIENT_ID);
+  const clientSecret = cleanEnvValue(process.env.GUESTY_CLIENT_SECRET);
 
   if (!clientId || !clientSecret) {
     throw new Error("Guesty credentials are missing. Add GUESTY_CLIENT_ID and GUESTY_CLIENT_SECRET.");
@@ -77,10 +97,18 @@ async function getToken(mode) {
     body,
   });
 
-  const payload = await tokenResponse.json().catch(() => ({}));
+  const rawPayload = await tokenResponse.text();
+  let payload = {};
+
+  try {
+    payload = rawPayload ? JSON.parse(rawPayload) : {};
+  } catch {
+    payload = {};
+  }
 
   if (!tokenResponse.ok) {
-    throw new Error(payload.message || "Guesty authentication failed.");
+    const detail = payload.error_description || payload.error || payload.message || rawPayload.slice(0, 180);
+    throw createGuestyAuthError(mode, tokenResponse.status, detail);
   }
 
   tokenCache = {
@@ -250,11 +278,11 @@ function getListingTags(listing) {
 }
 
 function filterListings(listings) {
-  const allowedIds = (process.env.GUESTY_LISTING_IDS || "")
+  const allowedIds = cleanEnvValue(process.env.GUESTY_LISTING_IDS)
     .split(",")
     .map((id) => id.trim())
     .filter(Boolean);
-  const requiredTag = (process.env.GUESTY_LISTING_TAG || "").trim().toLowerCase();
+  const requiredTag = cleanEnvValue(process.env.GUESTY_LISTING_TAG).toLowerCase();
 
   return listings.filter((listing) => {
     const idMatches = allowedIds.length === 0 || allowedIds.includes(getListingId(listing));
@@ -316,6 +344,15 @@ async function fetchGuestyListings(query, mode, token) {
   return [];
 }
 
+function getGuestyModes() {
+  const requestedMode = cleanEnvValue(process.env.GUESTY_API_MODE || "auto").toLowerCase();
+
+  if (requestedMode === "open") return ["open"];
+  if (requestedMode === "booking") return ["booking"];
+
+  return ["open", "booking"];
+}
+
 export default async function handler(request, response) {
   response.setHeader("Access-Control-Allow-Origin", process.env.GUESTY_ALLOWED_ORIGIN || "*");
   response.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
@@ -332,26 +369,51 @@ export default async function handler(request, response) {
     return;
   }
 
-  try {
-    const mode = process.env.GUESTY_API_MODE === "booking" ? "booking" : "open";
-    const query = getQuery(request);
-    const token = await getToken(mode);
-    const fetchedListings = await fetchGuestyListings(query, mode, token);
-    const listings = filterListings(fetchedListings);
-    const collections = listings.map(normalizeGuestyListing);
+  const query = getQuery(request);
+  const authErrors = [];
 
-    sendJson(response, 200, {
-      source: "guesty",
-      mode,
-      collections,
-      rawCount: fetchedListings.length,
-      filteredCount: listings.length,
-      syncedAt: new Date().toISOString(),
-      message:
-        collections.length > 0
-          ? ""
-          : "Guesty returned zero listings for this search/configuration. Check the API mode, listing filters, Booking Engine inclusion, or Guesty view/tag settings.",
-    });
+  try {
+    for (const mode of getGuestyModes()) {
+      let token;
+
+      try {
+        token = await getToken(mode);
+      } catch (error) {
+        if (error.isGuestyAuthError) {
+          authErrors.push(error.message);
+          continue;
+        }
+
+        throw error;
+      }
+
+      const fetchedListings = await fetchGuestyListings(query, mode, token);
+      const listings = filterListings(fetchedListings);
+      const collections = listings.map(normalizeGuestyListing);
+
+      sendJson(response, 200, {
+        source: "guesty",
+        mode,
+        collections,
+        rawCount: fetchedListings.length,
+        filteredCount: listings.length,
+        syncedAt: new Date().toISOString(),
+        message:
+          collections.length > 0
+            ? ""
+            : "Guesty returned zero listings for this search/configuration. Check listing filters, Booking Engine inclusion, or Guesty view/tag settings.",
+      });
+      return;
+    }
+
+    throw new Error(
+      [
+        "Guesty authentication failed for every configured API mode.",
+        "If your credentials came from Guesty Open API, set GUESTY_API_MODE=open.",
+        "If they came from the Booking Engine API screen, set GUESTY_API_MODE=booking.",
+        ...authErrors,
+      ].join(" "),
+    );
   } catch (error) {
     sendJson(response, 500, {
       source: "guesty",

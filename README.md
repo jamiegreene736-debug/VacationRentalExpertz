@@ -29,7 +29,7 @@ Important variables:
 
 ```env
 VITE_GUESTY_PROXY_URL=/api/guesty
-GUESTY_API_MODE=open
+GUESTY_API_MODE=auto
 GUESTY_CLIENT_ID=
 GUESTY_CLIENT_SECRET=
 GUESTY_DEFAULT_COUNTRY=United States
@@ -38,7 +38,7 @@ GUESTY_LISTING_TAG=
 GUESTY_VIEW_ID=
 ```
 
-The site assumes the listings returned from Guesty are already the combined, guest-facing listings. `GUESTY_API_MODE=open` pulls from the Guesty Open API and is the default for displaying your PMS listings. Use `GUESTY_API_MODE=booking` only when you are using Booking Engine API credentials and the listings are included in that Booking Engine API instance.
+The site assumes the listings returned from Guesty are already the combined, guest-facing listings. `GUESTY_API_MODE=auto` tries the Guesty Open API first and then the Booking Engine API. You can also set `GUESTY_API_MODE=open` when using Open API credentials, or `GUESTY_API_MODE=booking` when using Booking Engine API credentials and the listings are included in that Booking Engine API instance.
 
 `GUESTY_LISTING_IDS`, `GUESTY_LISTING_TAG`, and `GUESTY_VIEW_ID` are optional filters in case the Guesty account also contains listings that should not appear on the public website.
 
