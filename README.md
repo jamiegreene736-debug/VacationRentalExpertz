@@ -36,11 +36,14 @@ GUESTY_DEFAULT_COUNTRY=United States
 GUESTY_LISTING_IDS=
 GUESTY_LISTING_TAG=
 GUESTY_VIEW_ID=
+GUESTY_BOOKING_URL_TEMPLATE=
 ```
 
 The site assumes the listings returned from Guesty are already the combined, guest-facing listings. `GUESTY_API_MODE=auto` tries the Guesty Open API first and then the Booking Engine API. You can also set `GUESTY_API_MODE=open` when using Open API credentials, or `GUESTY_API_MODE=booking` when using Booking Engine API credentials and the listings are included in that Booking Engine API instance.
 
 `GUESTY_LISTING_IDS`, `GUESTY_LISTING_TAG`, and `GUESTY_VIEW_ID` are optional filters in case the Guesty account also contains listings that should not appear on the public website.
+
+Listings can expose their own booking URL from Guesty. If your listing payload does not include a booking link, set `GUESTY_BOOKING_URL_TEMPLATE` in Railway so the "Book now" button can deep-link to your direct booking flow. Use `{listingId}` where the Guesty listing id should be inserted, for example `https://book.example.com/listing/{listingId}`.
 
 ## Deployment Note
 

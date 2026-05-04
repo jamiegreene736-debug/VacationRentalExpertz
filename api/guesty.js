@@ -16,8 +16,19 @@ const bookingFields = [
   "tags",
   "address",
   "pictures",
+  "photos",
   "picture",
   "thumbnail",
+  "image",
+  "url",
+  "publicUrl",
+  "bookingUrl",
+  "booking_url",
+  "bookingEngineUrl",
+  "directBookingUrl",
+  "listingUrl",
+  "urls",
+  "links",
   "descriptions",
   "publicDescription",
   "description",
@@ -208,34 +219,86 @@ function truncate(value, maxLength) {
   return `${value.slice(0, maxLength).replace(/\s+\S*$/, "")}.`;
 }
 
-function getListingText(listing) {
-  return (
-    cleanText(listing.publicDescription?.summary) ||
-    cleanText(listing.publicDescription) ||
-    cleanText(listing.descriptions?.summary) ||
-    cleanText(listing.descriptions?.space) ||
-    cleanText(listing.description) ||
-    cleanText(listing.marketingDescription) ||
-    ""
-  );
+function getDescriptionSections(listing) {
+  const descriptions = listing.descriptions || {};
+  const publicDescription = listing.publicDescription || {};
+  const publicSummary = typeof publicDescription === "object" ? publicDescription.summary : publicDescription;
+  const internalSummary = typeof descriptions === "object" ? descriptions.summary : descriptions;
+  const sectionCandidates = [
+    ["Overview", publicSummary || internalSummary || listing.description || listing.marketingDescription],
+    ["The space", publicDescription.space || descriptions.space],
+    ["Guest access", publicDescription.access || descriptions.access],
+    ["Neighborhood", publicDescription.neighborhood || descriptions.neighborhood],
+    ["Notes", publicDescription.notes || descriptions.notes],
+    ["House rules", listing.terms?.houseRules || listing.houseRules],
+  ];
+
+  return sectionCandidates
+    .map(([title, value]) => ({ title, text: cleanText(value) }))
+    .filter((section, index, sections) => {
+      if (!section.text) return false;
+      return sections.findIndex((candidate) => candidate.text === section.text) === index;
+    });
 }
 
-function getImage(listing) {
-  const pictures = listing.pictures || listing.photos || [];
-  const firstPicture = Array.isArray(pictures) ? pictures[0] : null;
+function getListingText(listing) {
+  const sections = getDescriptionSections(listing);
+  return sections.map((section) => section.text).join("\n\n");
+}
 
-  return (
-    firstPicture?.original ||
-    firstPicture?.regular ||
-    firstPicture?.url ||
-    firstPicture?.thumbnail ||
-    listing.picture?.original ||
-    listing.picture?.regular ||
-    listing.picture?.url ||
-    listing.thumbnail ||
-    listing.image ||
-    ""
-  );
+function getPhotoUrl(photo) {
+  if (!photo) return "";
+  if (typeof photo === "string") return photo;
+
+  return photo.original || photo.regular || photo.url || photo.thumbnail || photo.large || photo.medium || "";
+}
+
+function getPhotos(listing) {
+  const pictures = listing.pictures || listing.photos || [];
+  const galleryPhotos = Array.isArray(pictures) ? pictures.map(getPhotoUrl) : [];
+  const singlePhotos = [
+    getPhotoUrl(listing.picture),
+    listing.thumbnail,
+    listing.image,
+  ];
+
+  return [...galleryPhotos, ...singlePhotos]
+    .filter(Boolean)
+    .filter((photo, index, photos) => photos.indexOf(photo) === index);
+}
+
+function getBookingUrl(listing) {
+  const directUrl =
+    listing.bookingUrl ||
+    listing.booking_url ||
+    listing.bookingEngineUrl ||
+    listing.directBookingUrl ||
+    listing.publicUrl ||
+    listing.listingUrl ||
+    listing.url ||
+    listing.urls?.booking ||
+    listing.urls?.public ||
+    listing.links?.booking ||
+    listing.links?.public;
+
+  if (directUrl) return directUrl;
+
+  const template = cleanEnvValue(process.env.GUESTY_BOOKING_URL_TEMPLATE);
+  const listingId = getListingId(listing);
+
+  if (!template || !listingId) return "";
+
+  if (template.includes("{listingId}")) {
+    return template.replaceAll("{listingId}", encodeURIComponent(listingId));
+  }
+
+  try {
+    const url = new URL(template);
+    url.searchParams.set("listingId", listingId);
+    return url.toString();
+  } catch {
+    return "";
+  }
 }
 
 function getPrice(listing) {
@@ -263,7 +326,7 @@ function normalizeAmenities(amenities) {
       return amenity.name || amenity.title || amenity.value || "";
     })
     .filter(Boolean)
-    .slice(0, 8);
+    .filter((amenity, index, normalizedAmenities) => normalizedAmenities.indexOf(amenity) === index);
 }
 
 function getListingTags(listing) {
@@ -297,9 +360,11 @@ function normalizeGuestyListing(listing) {
   const bedrooms = toNumber(listing.bedrooms);
   const bathrooms = toNumber(listing.bathrooms);
   const guests = toNumber(listing.accommodates || listing.guests);
+  const photos = getPhotos(listing);
+  const descriptionSections = getDescriptionSections(listing);
   const text = getListingText(listing);
   const title = listing.title || listing.nickname || "Untitled Guesty listing";
-  const image = getImage(listing);
+  const image = photos[0] || "";
 
   return {
     id: getListingId(listing),
@@ -312,11 +377,14 @@ function normalizeGuestyListing(listing) {
     guests,
     price: getPrice(listing),
     image,
+    photos,
     imageAlt: `${title} vacation rental`,
     summary: truncate(text, 170),
     description: text,
+    descriptionSections,
     units: [],
     amenities: normalizeAmenities(listing.amenities),
+    bookingUrl: getBookingUrl(listing),
     guestyListingId: getListingId(listing),
   };
 }

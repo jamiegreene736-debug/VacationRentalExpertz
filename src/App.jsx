@@ -4,10 +4,14 @@ import {
   Bath,
   BedDouble,
   Building2,
+  CalendarDays,
   Check,
+  ChevronLeft,
   ChevronRight,
   DoorOpen,
+  ExternalLink,
   Home,
+  Image as ImageIcon,
   Layers,
   Mail,
   MapPin,
@@ -100,6 +104,45 @@ function createInquiryUrl(stay, search) {
   return `mailto:stays@vacationrentalexpertz.com?${params.toString()}`;
 }
 
+function getStayPhotos(stay) {
+  if (!stay) return [];
+
+  const photos = Array.isArray(stay.photos) ? stay.photos : [];
+  const allPhotos = [stay.image, ...photos].filter(Boolean);
+
+  return allPhotos.filter((photo, index) => allPhotos.indexOf(photo) === index);
+}
+
+function getDescriptionSections(stay) {
+  if (!stay) return [];
+
+  if (Array.isArray(stay.descriptionSections) && stay.descriptionSections.length > 0) {
+    return stay.descriptionSections;
+  }
+
+  return stay.description ? [{ title: "About this stay", text: stay.description }] : [];
+}
+
+function addBookingParams(baseUrl, search) {
+  if (!baseUrl) return "";
+
+  try {
+    const url = new URL(baseUrl, "https://www.vacationrentalexpertz.com");
+
+    if (search.checkIn) url.searchParams.set("checkIn", search.checkIn);
+    if (search.checkOut) url.searchParams.set("checkOut", search.checkOut);
+    if (search.guests) url.searchParams.set("guests", search.guests);
+
+    return url.toString();
+  } catch {
+    return baseUrl;
+  }
+}
+
+function createBookingUrl(stay, search) {
+  return addBookingParams(stay.bookingUrl, search) || createInquiryUrl(stay, search);
+}
+
 function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [search, setSearch] = useState(defaultSearch);
@@ -108,6 +151,7 @@ function App() {
   const [guestyStatus, setGuestyStatus] = useState("idle");
   const [guestyMessage, setGuestyMessage] = useState("");
   const [activeStay, setActiveStay] = useState(null);
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
   useEffect(() => {
     let ignore = false;
@@ -122,7 +166,6 @@ function App() {
         if (ignore) return;
 
         setCollections(response.collections);
-        setActiveStay(response.collections[0] || null);
         setGuestyStatus(response.collections.length > 0 ? "live" : "empty");
         setGuestyMessage(
           response.collections.length > 0
@@ -146,6 +189,28 @@ function App() {
     };
   }, [submittedSearch]);
 
+  useEffect(() => {
+    setActivePhotoIndex(0);
+  }, [activeStay]);
+
+  useEffect(() => {
+    if (!activeStay) return undefined;
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setActiveStay(null);
+      }
+    }
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [activeStay]);
+
   const visibleCollections = useMemo(() => {
     if (!submittedSearch.city.trim()) return collections;
 
@@ -162,6 +227,18 @@ function App() {
   function handleSearch(event) {
     event.preventDefault();
     setSubmittedSearch(search);
+  }
+
+  function openStay(stay) {
+    setActiveStay(stay);
+    setActivePhotoIndex(0);
+  }
+
+  function showNextPhoto(direction) {
+    const photos = getStayPhotos(activeStay);
+    if (photos.length < 2) return;
+
+    setActivePhotoIndex((currentIndex) => (currentIndex + direction + photos.length) % photos.length);
   }
 
   return (
@@ -327,7 +404,7 @@ function App() {
 
                 return (
                   <article className="stay-card" key={stay.id}>
-                    <button className="stay-image-button" type="button" onClick={() => setActiveStay(stay)}>
+                    <button className="stay-image-button" type="button" onClick={() => openStay(stay)}>
                       {stay.image ? (
                         <img src={stay.image} alt={stay.imageAlt} />
                       ) : (
@@ -345,7 +422,9 @@ function App() {
                           {stay.location}
                         </div>
                       )}
-                      <h3>{stay.title}</h3>
+                      <button className="stay-title-button" type="button" onClick={() => openStay(stay)}>
+                        <h3>{stay.title}</h3>
+                      </button>
                       {stay.summary && <p>{stay.summary}</p>}
                       {metrics.length > 0 && (
                         <div className="stay-metrics" aria-label={`${stay.title} details`}>
@@ -363,8 +442,8 @@ function App() {
                         {formatCurrency(stay.price)}
                         {stay.price ? <small>/night from listing</small> : <small>pricing on request</small>}
                       </strong>
-                      <button type="button" onClick={() => setActiveStay(stay)}>
-                        Details
+                      <button type="button" onClick={() => openStay(stay)}>
+                        View stay
                         <ArrowRight size={17} />
                       </button>
                     </div>
@@ -375,49 +454,190 @@ function App() {
           )}
         </section>
 
-        {activeStay && (
-          <section className="detail-section" aria-label="Selected combo stay details">
-            <div className="detail-media">
-              {activeStay.image ? (
-                <img src={activeStay.image} alt={activeStay.imageAlt} />
-              ) : (
-                <div className="detail-photo-missing">
-                  <Building2 size={34} />
-                  Photo coming soon
-                </div>
-              )}
-            </div>
-            <div className="detail-copy">
-              <p className="section-kicker">Current Selection</p>
-              <h2>{activeStay.title}</h2>
-              {activeStay.description && <p>{activeStay.description}</p>}
-              {activeStay.units.length > 0 && (
-                <div className="unit-list">
-                  {activeStay.units.map((unit) => (
-                    <div className="unit-row" key={`${unit.name}-${unit.detail}`}>
-                      <Home size={19} />
-                      <div>
-                        {unit.name && <strong>{unit.name}</strong>}
-                        {unit.detail && <span>{unit.detail}</span>}
-                      </div>
+        {activeStay &&
+          (() => {
+            const photos = getStayPhotos(activeStay);
+            const currentPhoto = photos[activePhotoIndex] || "";
+            const descriptionSections = getDescriptionSections(activeStay);
+            const bookingUrl = createBookingUrl(activeStay, search);
+            const hasDirectBookingUrl = Boolean(activeStay.bookingUrl);
+            const listingFacts = [
+              { icon: <BedDouble size={19} />, label: formatMetric(activeStay.bedrooms, "bedroom") },
+              { icon: <Bath size={19} />, label: formatMetric(activeStay.bathrooms, "bath") },
+              { icon: <Users size={19} />, label: activeStay.guests ? `Sleeps ${activeStay.guests}` : "" },
+              { icon: <Home size={19} />, label: "Two-place stay" },
+            ].filter((fact) => fact.label);
+
+            return (
+              <div className="listing-modal-backdrop" role="presentation" onMouseDown={() => setActiveStay(null)}>
+                <article
+                  className="listing-modal"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="listing-modal-title"
+                  onMouseDown={(event) => event.stopPropagation()}
+                >
+                  <button className="modal-close" type="button" onClick={() => setActiveStay(null)}>
+                    <X size={20} />
+                    <span className="sr-only">Close listing</span>
+                  </button>
+
+                  <div className="listing-gallery">
+                    <div className="gallery-stage">
+                      {currentPhoto ? (
+                        <img src={currentPhoto} alt={activeStay.imageAlt} />
+                      ) : (
+                        <div className="detail-photo-missing">
+                          <Building2 size={34} />
+                          Photo coming soon
+                        </div>
+                      )}
+
+                      {photos.length > 1 && (
+                        <>
+                          <button
+                            className="gallery-nav gallery-nav-prev"
+                            type="button"
+                            onClick={() => showNextPhoto(-1)}
+                            aria-label="Previous photo"
+                          >
+                            <ChevronLeft size={22} />
+                          </button>
+                          <button
+                            className="gallery-nav gallery-nav-next"
+                            type="button"
+                            onClick={() => showNextPhoto(1)}
+                            aria-label="Next photo"
+                          >
+                            <ChevronRight size={22} />
+                          </button>
+                        </>
+                      )}
+
+                      {photos.length > 0 && (
+                        <span className="gallery-count">
+                          <ImageIcon size={15} />
+                          {activePhotoIndex + 1} / {photos.length}
+                        </span>
+                      )}
                     </div>
-                  ))}
-                </div>
-              )}
-              {activeStay.amenities.length > 0 && (
-                <div className="amenity-cloud" aria-label="Included amenities">
-                  {activeStay.amenities.map((amenity) => (
-                    <span key={amenity}>{amenity}</span>
-                  ))}
-                </div>
-              )}
-              <a className="primary-action dark" href={createInquiryUrl(activeStay, submittedSearch)}>
-                Request this combo
-                <Mail size={18} />
-              </a>
-            </div>
-          </section>
-        )}
+
+                    {photos.length > 1 && (
+                      <div className="gallery-thumbs" aria-label="Listing photos">
+                        {photos.map((photo, index) => (
+                          <button
+                            className="gallery-thumb"
+                            data-active={index === activePhotoIndex}
+                            key={photo}
+                            type="button"
+                            onClick={() => setActivePhotoIndex(index)}
+                            aria-label={`Show photo ${index + 1}`}
+                          >
+                            <img src={photo} alt="" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="listing-content">
+                    <div className="listing-main">
+                      {activeStay.location && (
+                        <div className="stay-location">
+                          <MapPin size={16} />
+                          {activeStay.location}
+                        </div>
+                      )}
+                      <h2 id="listing-modal-title">{activeStay.title}</h2>
+
+                      {listingFacts.length > 0 && (
+                        <div className="listing-facts" aria-label={`${activeStay.title} facts`}>
+                          {listingFacts.map((fact) => (
+                            <span key={fact.label}>
+                              {fact.icon}
+                              {fact.label}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {descriptionSections.length > 0 && (
+                        <div className="listing-description">
+                          {descriptionSections.map((section) => (
+                            <section key={`${section.title}-${section.text}`}>
+                              <h3>{section.title}</h3>
+                              <p>{section.text}</p>
+                            </section>
+                          ))}
+                        </div>
+                      )}
+
+                      {activeStay.amenities.length > 0 && (
+                        <section className="amenity-section">
+                          <h3>Amenities</h3>
+                          <div className="amenity-grid" aria-label="Included amenities">
+                            {activeStay.amenities.map((amenity) => (
+                              <span key={amenity}>
+                                <Check size={16} />
+                                {amenity}
+                              </span>
+                            ))}
+                          </div>
+                        </section>
+                      )}
+                    </div>
+
+                    <aside className="booking-panel" aria-label="Book this stay">
+                      <div>
+                        <span className="booking-kicker">Ready to stay?</span>
+                        <strong>
+                          {formatCurrency(activeStay.price)}
+                          {activeStay.price ? <small>/night from listing</small> : <small>pricing on request</small>}
+                        </strong>
+                      </div>
+
+                      <div className="booking-fields">
+                        <label>
+                          <span>Check in</span>
+                          <input name="checkIn" type="date" value={search.checkIn} onChange={updateSearch} />
+                        </label>
+                        <label>
+                          <span>Check out</span>
+                          <input name="checkOut" type="date" value={search.checkOut} onChange={updateSearch} />
+                        </label>
+                        <label>
+                          <span>Guests</span>
+                          <input
+                            name="guests"
+                            type="number"
+                            min="1"
+                            max="32"
+                            value={search.guests}
+                            onChange={updateSearch}
+                          />
+                        </label>
+                      </div>
+
+                      <a
+                        className="primary-action booking-action"
+                        href={bookingUrl}
+                        target={hasDirectBookingUrl ? "_blank" : undefined}
+                        rel={hasDirectBookingUrl ? "noreferrer" : undefined}
+                      >
+                        {hasDirectBookingUrl ? "Book now" : "Request to book"}
+                        {hasDirectBookingUrl ? <ExternalLink size={18} /> : <Mail size={18} />}
+                      </a>
+
+                      <p>
+                        <CalendarDays size={16} />
+                        Dates and guest count carry into the booking request.
+                      </p>
+                    </aside>
+                  </div>
+                </article>
+              </div>
+            );
+          })()}
 
         <section className="method-section" id="method">
           <div className="section-heading compact">

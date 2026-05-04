@@ -1,6 +1,9 @@
 const guestyEndpoint = import.meta.env.VITE_GUESTY_PROXY_URL || "/api/guesty";
 
 function normalizeCollection(stay) {
+  const photos = Array.isArray(stay.photos) ? stay.photos.filter(Boolean) : [];
+  const image = stay.image || photos[0] || "";
+
   return {
     ...stay,
     id: String(stay.id || stay._id || stay.guestyListingId || stay.title || crypto.randomUUID()),
@@ -12,12 +15,17 @@ function normalizeCollection(stay) {
     bathrooms: Number(stay.bathrooms || 0),
     guests: Number(stay.guests || stay.accommodates || 0),
     price: Number(stay.price || 0),
-    image: stay.image || "",
+    image,
+    photos: image ? [image, ...photos.filter((photo) => photo !== image)] : photos,
     imageAlt: stay.imageAlt || `${stay.title || "Guesty listing"} vacation rental`,
     summary: stay.summary || "",
     description: stay.description || "",
+    descriptionSections: Array.isArray(stay.descriptionSections)
+      ? stay.descriptionSections.filter((section) => section?.text)
+      : [],
     units: Array.isArray(stay.units) ? stay.units.filter((unit) => unit?.name || unit?.detail) : [],
-    amenities: Array.isArray(stay.amenities) ? stay.amenities.filter(Boolean).slice(0, 8) : [],
+    amenities: Array.isArray(stay.amenities) ? stay.amenities.filter(Boolean) : [],
+    bookingUrl: stay.bookingUrl || "",
     guestyListingId: stay.guestyListingId || stay._id || stay.id || "",
   };
 }
