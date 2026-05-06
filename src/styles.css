@@ -102,12 +102,12 @@ img {
   border: 1px solid rgba(6, 32, 68, 0.08);
   border-radius: 8px;
   display: inline-flex;
-  height: 62px;
+  height: 42px;
   justify-content: center;
   min-width: 0;
   overflow: hidden;
   padding: 0;
-  width: clamp(250px, 24vw, 380px);
+  width: clamp(210px, 21vw, 320px);
 }
 
 .brand-logo {
@@ -1772,24 +1772,24 @@ h3 {
   }
 
   .brand-lockup {
-    height: clamp(110px, 31vw, 126px);
-    width: clamp(80px, 23vw, 94px);
+    height: 38px;
+    width: clamp(136px, 42vw, 168px);
   }
 
   .brand-logo-desktop {
-    display: none;
-  }
-
-  .brand-logo-mobile {
     display: block;
   }
 
+  .brand-logo-mobile {
+    display: none;
+  }
+
   .hero-section {
-    padding-top: 10rem;
+    padding-top: 7rem;
   }
 
   .search-page-hero {
-    padding-top: 10.75rem;
+    padding-top: 7rem;
   }
 
   .icon-button,
