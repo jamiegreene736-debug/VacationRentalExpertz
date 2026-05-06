@@ -22,8 +22,8 @@ import {
   Users,
   X,
 } from "lucide-react";
-import logoImage from "./assets/brand/vacation-rental-expertz-header.svg";
-import mobileLogoImage from "./assets/brand/vacation-rental-expertz-header-mobile.svg";
+import logoImage from "./assets/brand/vacation-rental-expertz-logo-horizontal.png";
+import mobileLogoImage from "./assets/brand/vacation-rental-expertz-logo-stacked.png";
 import johnHeadshot from "./assets/brand/john-carpenter-headshot.jpg";
 import { fetchGuestyCollections } from "./guesty";
 
