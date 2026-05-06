@@ -373,6 +373,107 @@ h3 {
   padding: 0 1rem;
 }
 
+.search-page-hero {
+  background:
+    linear-gradient(135deg, rgba(0, 154, 154, 0.14), rgba(226, 161, 67, 0.16) 58%, rgba(255, 255, 255, 0)),
+    linear-gradient(180deg, #ffffff 0%, #eefafa 100%);
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: clamp(1rem, 3vw, 2rem);
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.38fr);
+  padding: 9rem clamp(1rem, 5vw, 5rem) clamp(2rem, 5vw, 4rem);
+}
+
+.search-page-copy {
+  max-width: 880px;
+}
+
+.search-page-copy h1 {
+  color: var(--reef);
+  font-size: clamp(3.4rem, 7vw, 6.3rem);
+  line-height: 0.9;
+  max-width: 13ch;
+}
+
+.search-page-copy p {
+  color: var(--muted);
+  font-size: clamp(1.04rem, 1.5vw, 1.28rem);
+  line-height: 1.68;
+  margin-bottom: 0;
+  max-width: 760px;
+}
+
+.search-assist-card {
+  align-self: end;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 18px 50px rgba(6, 32, 68, 0.11);
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: auto 1fr;
+  padding: 0.85rem;
+}
+
+.search-assist-card img {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  height: 78px;
+  object-fit: cover;
+  object-position: center top;
+  width: 78px;
+}
+
+.search-assist-card span {
+  color: var(--lagoon);
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 950;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+}
+
+.search-assist-card strong {
+  color: var(--reef);
+  display: block;
+  line-height: 1.3;
+}
+
+.search-assist-card a {
+  color: var(--lagoon);
+  display: inline-flex;
+  font-weight: 950;
+  margin-top: 0.5rem;
+}
+
+.search-page-panel {
+  grid-column: 1 / -1;
+  margin-top: 0.3rem;
+}
+
+.destination-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  grid-column: 1 / -1;
+}
+
+.destination-chips button {
+  background: #ffffff;
+  border: 1px solid rgba(6, 32, 68, 0.12);
+  border-radius: 999px;
+  color: var(--reef);
+  font-size: 0.88rem;
+  font-weight: 900;
+  min-height: 38px;
+  padding: 0 0.85rem;
+}
+
+.destination-chips button:hover {
+  border-color: rgba(0, 154, 154, 0.36);
+  color: var(--lagoon);
+}
+
 .proof-strip {
   background: var(--paper);
   border-bottom: 1px solid var(--line);
@@ -605,6 +706,17 @@ h3 {
   background:
     linear-gradient(180deg, #eaf9f8 0%, #ffffff 100%),
     var(--mist);
+}
+
+.search-results-section {
+  padding-top: clamp(2.5rem, 5vw, 4rem);
+}
+
+.search-results-summary {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0.8rem 0 0;
+  max-width: 640px;
 }
 
 .section-heading {
@@ -1442,6 +1554,7 @@ h3 {
 
 @media (max-width: 1120px) {
   .search-panel,
+  .search-page-hero,
   .collection-grid,
   .intro-section,
   .about-section,
@@ -1461,6 +1574,11 @@ h3 {
 
   .search-panel button {
     width: 100%;
+  }
+
+  .search-assist-card {
+    align-self: start;
+    max-width: 520px;
   }
 
   h1 {
@@ -1531,6 +1649,10 @@ h3 {
     padding-top: 7rem;
   }
 
+  .search-page-hero {
+    padding-top: 7rem;
+  }
+
   .hero-overlay {
     background:
       linear-gradient(180deg, rgba(4, 21, 48, 0.38), rgba(4, 21, 48, 0.9)),
@@ -1575,8 +1697,18 @@ h3 {
   }
 
   .curation-note,
+  .search-assist-card,
   .seasonal-rate-grid {
     grid-template-columns: 1fr;
+  }
+
+  .search-assist-card {
+    max-width: none;
+  }
+
+  .search-assist-card img {
+    height: 96px;
+    width: 96px;
   }
 
   .stay-card {
@@ -1654,6 +1786,10 @@ h3 {
 
   .hero-section {
     padding-top: 10rem;
+  }
+
+  .search-page-hero {
+    padding-top: 10.75rem;
   }
 
   .icon-button,

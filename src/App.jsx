@@ -66,6 +66,38 @@ const defaultSearch = {
   guests: "12",
 };
 
+const destinationSuggestions = ["Hawaii", "Maui", "Kauai", "Orlando", "Disney World", "Central Florida"];
+const searchFields = ["city", "checkIn", "checkOut", "guests"];
+
+function getSearchFromUrl() {
+  if (typeof window === "undefined") return defaultSearch;
+
+  const params = new URLSearchParams(window.location.search);
+
+  return searchFields.reduce(
+    (currentSearch, field) => ({
+      ...currentSearch,
+      [field]: params.get(field) || defaultSearch[field],
+    }),
+    { ...defaultSearch },
+  );
+}
+
+function isSearchRoute() {
+  return typeof window !== "undefined" && window.location.pathname.replace(/\/$/, "") === "/search";
+}
+
+function createSearchPath(searchState) {
+  const params = new URLSearchParams();
+
+  searchFields.forEach((field) => {
+    if (searchState[field]) params.set(field, searchState[field]);
+  });
+
+  const query = params.toString();
+  return `/search${query ? `?${query}` : ""}`;
+}
+
 const contact = {
   name: "John Carpenter",
   phone: "(808) 460-6509",
@@ -194,13 +226,32 @@ function createBookingUrl(stay, search) {
 
 function App() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [search, setSearch] = useState(defaultSearch);
-  const [submittedSearch, setSubmittedSearch] = useState(defaultSearch);
+  const [isSearchPage, setIsSearchPage] = useState(isSearchRoute);
+  const [search, setSearch] = useState(getSearchFromUrl);
+  const [submittedSearch, setSubmittedSearch] = useState(getSearchFromUrl);
   const [collections, setCollections] = useState([]);
   const [guestyStatus, setGuestyStatus] = useState("idle");
   const [guestyMessage, setGuestyMessage] = useState("");
   const [activeStay, setActiveStay] = useState(null);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+
+  useEffect(() => {
+    function handlePopState() {
+      setIsSearchPage(isSearchRoute());
+
+      if (isSearchRoute()) {
+        const nextSearch = getSearchFromUrl();
+        setSearch(nextSearch);
+        setSubmittedSearch(nextSearch);
+      }
+    }
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
 
   useEffect(() => {
     let ignore = false;
@@ -273,9 +324,57 @@ function App() {
     setSearch((current) => ({ ...current, [name]: value }));
   }
 
+  function navigateHome(event) {
+    event?.preventDefault();
+
+    if (typeof window !== "undefined") {
+      window.history.pushState({}, "", "/");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    setIsSearchPage(false);
+    setMenuOpen(false);
+  }
+
+  function navigateToSearch(event, nextSearch = search) {
+    event?.preventDefault();
+
+    if (typeof window !== "undefined") {
+      window.history.pushState({}, "", createSearchPath(nextSearch));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    setSearch(nextSearch);
+    setSubmittedSearch(nextSearch);
+    setIsSearchPage(true);
+    setMenuOpen(false);
+  }
+
+  function applyDestination(destination) {
+    const nextSearch = { ...search, city: destination };
+
+    setSearch(nextSearch);
+    setSubmittedSearch(nextSearch);
+
+    if (typeof window !== "undefined") {
+      window.history.replaceState({}, "", createSearchPath(nextSearch));
+    }
+  }
+
   function handleSearch(event) {
     event.preventDefault();
-    setSubmittedSearch(search);
+
+    if (isSearchPage) {
+      setSubmittedSearch(search);
+
+      if (typeof window !== "undefined") {
+        window.history.replaceState({}, "", createSearchPath(search));
+      }
+
+      return;
+    }
+
+    navigateToSearch(undefined, search);
   }
 
   function openStay(stay) {
@@ -290,10 +389,66 @@ function App() {
     setActivePhotoIndex((currentIndex) => (currentIndex + direction + photos.length) % photos.length);
   }
 
+  function renderStayCard(stay) {
+    const metrics = [
+      { icon: <BedDouble size={17} />, label: formatMetric(stay.bedrooms, "bedroom") },
+      { icon: <Bath size={17} />, label: formatMetric(stay.bathrooms, "bath") },
+      { icon: <Users size={17} />, label: stay.guests ? `Sleeps ${stay.guests}` : "" },
+    ].filter((metric) => metric.label);
+
+    return (
+      <article className="stay-card" key={stay.id}>
+        <button className="stay-image-button" type="button" onClick={() => openStay(stay)}>
+          {stay.image ? (
+            <img src={stay.image} alt={stay.imageAlt} />
+          ) : (
+            <span className="photo-missing">
+              <Building2 size={24} />
+              Photo coming soon
+            </span>
+          )}
+          {stay.badge && <span className="stay-badge">{stay.badge}</span>}
+        </button>
+        <div className="stay-body">
+          {stay.location && (
+            <div className="stay-location">
+              <MapPin size={16} />
+              {stay.location}
+            </div>
+          )}
+          <button className="stay-title-button" type="button" onClick={() => openStay(stay)}>
+            <h3>{stay.title}</h3>
+          </button>
+          {stay.summary && <p>{stay.summary}</p>}
+          {metrics.length > 0 && (
+            <div className="stay-metrics" aria-label={`${stay.title} details`}>
+              {metrics.map((metric) => (
+                <span key={metric.label}>
+                  {metric.icon}
+                  {metric.label}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="stay-footer">
+          <strong>
+            {formatCurrency(stay.price)}
+            {stay.price ? <small>/night from listing</small> : <small>pricing on request</small>}
+          </strong>
+          <button type="button" onClick={() => openStay(stay)}>
+            View stay
+            <ArrowRight size={17} />
+          </button>
+        </div>
+      </article>
+    );
+  }
+
   return (
     <div className="site-shell">
       <header className="site-header" data-open={menuOpen}>
-        <a className="brand-lockup" href="#top" aria-label="VacationRentalExpertz home">
+        <a className="brand-lockup" href="/" onClick={navigateHome} aria-label="VacationRentalExpertz home">
           <img className="brand-logo brand-logo-desktop" src={logoImage} alt="VacationRentalExpertz" />
           <img className="brand-logo brand-logo-mobile" src={mobileLogoImage} alt="" aria-hidden="true" />
         </a>
@@ -304,16 +459,16 @@ function App() {
         </button>
 
         <nav className="site-nav" aria-label="Main navigation">
-          <a href="#stays" onClick={() => setMenuOpen(false)}>
-            Combo stays
+          <a href="/search" onClick={navigateToSearch}>
+            Search
           </a>
-          <a href="#method" onClick={() => setMenuOpen(false)}>
+          <a href="/#method" onClick={() => setMenuOpen(false)}>
             Method
           </a>
-          <a href="#about" onClick={() => setMenuOpen(false)}>
+          <a href="/#about" onClick={() => setMenuOpen(false)}>
             About
           </a>
-          <a href="#contact" onClick={() => setMenuOpen(false)}>
+          <a href="/#contact" onClick={() => setMenuOpen(false)}>
             Contact
           </a>
         </nav>
@@ -323,7 +478,7 @@ function App() {
             <Phone size={17} />
             {contact.phone}
           </a>
-          <a className="header-action" href="#stays">
+          <a className="header-action" href="/search" onClick={navigateToSearch}>
             <Search size={17} />
             Check dates
           </a>
@@ -331,7 +486,67 @@ function App() {
       </header>
 
       <main id="top">
-        <section className="hero-section" aria-label="VacationRentalExpertz">
+        {isSearchPage ? (
+          <section className="search-page-hero" aria-label="Search VacationRentalExpertz stays">
+            <div className="search-page-copy">
+              <p className="section-kicker">Search Curated Stays</p>
+              <h1>Find the right two-condo setup.</h1>
+              <p>
+                Search live Guesty inventory for curated resort stays. Enter your destination,
+                dates, and headcount, then open a listing for photos, seasonal pricing, amenities,
+                and booking options.
+              </p>
+            </div>
+
+            <aside className="search-assist-card" aria-label="Search support">
+              <img src={johnHeadshot} alt="" />
+              <div>
+                <span>Need help choosing?</span>
+                <strong>John can match the bedroom mix, resort layout, and group style.</strong>
+                <a href={contact.phoneHref}>{contact.phone}</a>
+              </div>
+            </aside>
+
+            <form className="search-panel search-page-panel" aria-label="Search combo stays" onSubmit={handleSearch}>
+              <label>
+                <span>Destination</span>
+                <input
+                  name="city"
+                  type="search"
+                  placeholder="Resort, city, area"
+                  value={search.city}
+                  onChange={updateSearch}
+                />
+              </label>
+              <label>
+                <span>Check in</span>
+                <input name="checkIn" type="date" value={search.checkIn} onChange={updateSearch} />
+              </label>
+              <label>
+                <span>Check out</span>
+                <input name="checkOut" type="date" value={search.checkOut} onChange={updateSearch} />
+              </label>
+              <label>
+                <span>Guests</span>
+                <input name="guests" type="number" min="1" max="32" value={search.guests} onChange={updateSearch} />
+              </label>
+              <button type="submit">
+                <Search size={18} />
+                Search
+              </button>
+            </form>
+
+            <div className="destination-chips" aria-label="Popular destinations">
+              {destinationSuggestions.map((destination) => (
+                <button key={destination} type="button" onClick={() => applyDestination(destination)}>
+                  {destination}
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <>
+            <section className="hero-section" aria-label="VacationRentalExpertz">
           <img
             className="hero-image"
             src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2200&q=86"
@@ -355,11 +570,11 @@ function App() {
               and still gets space when it is time to wind down.
             </p>
             <div className="hero-actions">
-              <a className="primary-action" href="#stays">
+              <a className="primary-action" href="/search" onClick={navigateToSearch}>
                 Find smarter resort stays
                 <ArrowRight size={18} />
               </a>
-              <a className="secondary-action" href="#method">
+              <a className="secondary-action" href="/#method">
                 See the two-condo method
                 <ChevronRight size={17} />
               </a>
@@ -485,12 +700,27 @@ function App() {
             </div>
           </div>
         </section>
+          </>
+        )}
 
-        <section className="stays-section" id="stays">
+        <section className={isSearchPage ? "stays-section search-results-section" : "stays-section"} id="stays">
           <div className="section-heading">
             <div>
-              <p className="section-kicker">Resort Condo Combos</p>
-              <h2>Skip the mansion markup. Keep the destination feeling.</h2>
+              <p className="section-kicker">{isSearchPage ? "Search Results" : "Resort Condo Combos"}</p>
+              <h2>
+                {isSearchPage
+                  ? "Live curated stays that match your trip."
+                  : "Skip the mansion markup. Keep the destination feeling."}
+              </h2>
+              {isSearchPage && (
+                <p className="search-results-summary">
+                  {guestyStatus === "loading"
+                    ? "Checking Guesty for current inventory."
+                    : `${visibleCollections.length} curated ${
+                        visibleCollections.length === 1 ? "stay" : "stays"
+                      }${submittedSearch.city ? ` for ${submittedSearch.city}` : ""}.`}
+                </p>
+              )}
             </div>
             <div className="live-pill" data-status={guestyStatus}>
               <span />
@@ -513,61 +743,7 @@ function App() {
             </div>
           ) : (
             <div className="collection-grid">
-              {visibleCollections.map((stay) => {
-                const metrics = [
-                  { icon: <BedDouble size={17} />, label: formatMetric(stay.bedrooms, "bedroom") },
-                  { icon: <Bath size={17} />, label: formatMetric(stay.bathrooms, "bath") },
-                  { icon: <Users size={17} />, label: stay.guests ? `Sleeps ${stay.guests}` : "" },
-                ].filter((metric) => metric.label);
-
-                return (
-                  <article className="stay-card" key={stay.id}>
-                    <button className="stay-image-button" type="button" onClick={() => openStay(stay)}>
-                      {stay.image ? (
-                        <img src={stay.image} alt={stay.imageAlt} />
-                      ) : (
-                        <span className="photo-missing">
-                          <Building2 size={24} />
-                          Photo coming soon
-                        </span>
-                      )}
-                      {stay.badge && <span className="stay-badge">{stay.badge}</span>}
-                    </button>
-                    <div className="stay-body">
-                      {stay.location && (
-                        <div className="stay-location">
-                          <MapPin size={16} />
-                          {stay.location}
-                        </div>
-                      )}
-                      <button className="stay-title-button" type="button" onClick={() => openStay(stay)}>
-                        <h3>{stay.title}</h3>
-                      </button>
-                      {stay.summary && <p>{stay.summary}</p>}
-                      {metrics.length > 0 && (
-                        <div className="stay-metrics" aria-label={`${stay.title} details`}>
-                          {metrics.map((metric) => (
-                            <span key={metric.label}>
-                              {metric.icon}
-                              {metric.label}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="stay-footer">
-                      <strong>
-                        {formatCurrency(stay.price)}
-                        {stay.price ? <small>/night from listing</small> : <small>pricing on request</small>}
-                      </strong>
-                      <button type="button" onClick={() => openStay(stay)}>
-                        View stay
-                        <ArrowRight size={17} />
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
+              {visibleCollections.map((stay) => renderStayCard(stay))}
             </div>
           )}
         </section>
@@ -812,46 +988,50 @@ function App() {
             );
           })()}
 
-        <section className="method-section" id="method">
-          <div className="section-heading compact">
-            <div>
-              <p className="section-kicker">The Listing Method</p>
-              <h2>The stay is simple to understand. The value is easy to see.</h2>
-            </div>
-          </div>
-          <div className="process-grid">
-            {processSteps.map((step, index) => (
-              <article className="process-card" key={step.title}>
-                <div className="process-top">
-                  {step.icon}
-                  <span>{String(index + 1).padStart(2, "0")}</span>
+        {!isSearchPage && (
+          <>
+            <section className="method-section" id="method">
+              <div className="section-heading compact">
+                <div>
+                  <p className="section-kicker">The Listing Method</p>
+                  <h2>The stay is simple to understand. The value is easy to see.</h2>
                 </div>
-                <h3>{step.title}</h3>
-                <p>{step.body}</p>
-              </article>
-            ))}
-          </div>
-        </section>
+              </div>
+              <div className="process-grid">
+                {processSteps.map((step, index) => (
+                  <article className="process-card" key={step.title}>
+                    <div className="process-top">
+                      {step.icon}
+                      <span>{String(index + 1).padStart(2, "0")}</span>
+                    </div>
+                    <h3>{step.title}</h3>
+                    <p>{step.body}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
 
-        <section className="contact-section" id="contact">
-          <div>
-            <p className="section-kicker">Plan A Group Stay</p>
-            <h2>Tell John the destination, headcount, and dates. He will find the right two-condo fit.</h2>
-            <p className="contact-person">
-              {contact.name} | Hawaii, Central Florida, Disney World area, and tropical resort stays
-            </p>
-          </div>
-          <div className="contact-actions">
-            <a className="contact-button" href={contact.phoneHref}>
-              <Phone size={18} />
-              {contact.phone}
-            </a>
-            <a className="contact-button secondary-contact" href={`mailto:${contact.email}`}>
-              <Mail size={18} />
-              {contact.email}
-            </a>
-          </div>
-        </section>
+            <section className="contact-section" id="contact">
+              <div>
+                <p className="section-kicker">Plan A Group Stay</p>
+                <h2>Tell John the destination, headcount, and dates. He will find the right two-condo fit.</h2>
+                <p className="contact-person">
+                  {contact.name} | Hawaii, Central Florida, Disney World area, and tropical resort stays
+                </p>
+              </div>
+              <div className="contact-actions">
+                <a className="contact-button" href={contact.phoneHref}>
+                  <Phone size={18} />
+                  {contact.phone}
+                </a>
+                <a className="contact-button secondary-contact" href={`mailto:${contact.email}`}>
+                  <Mail size={18} />
+                  {contact.email}
+                </a>
+              </div>
+            </section>
+          </>
+        )}
       </main>
 
       <footer className="site-footer">
@@ -860,8 +1040,8 @@ function App() {
           <p>Two places. One amazing resort stay.</p>
         </div>
         <div className="footer-links">
-          <a href="#stays">Combo stays</a>
-          <a href="#about">About</a>
+          <a href="/search" onClick={navigateToSearch}>Search</a>
+          <a href="/#about">About</a>
           <a href={contact.phoneHref}>{contact.phone}</a>
           <a href={`mailto:${contact.email}`}>Contact</a>
         </div>
