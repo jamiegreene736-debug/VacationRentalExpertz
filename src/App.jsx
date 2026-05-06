@@ -16,9 +16,11 @@ import {
   Mail,
   MapPin,
   Menu,
+  Phone,
   Search,
   Sparkles,
   Users,
+  UserRound,
   X,
 } from "lucide-react";
 import logoImage from "./assets/brand/vacation-rental-expertz-header.svg";
@@ -61,6 +63,13 @@ const defaultSearch = {
   checkIn: "",
   checkOut: "",
   guests: "12",
+};
+
+const contact = {
+  name: "John Carpenter",
+  phone: "(808) 460-6509",
+  phoneHref: "tel:+18084606509",
+  email: "stays@vacationrentalexpertz.com",
 };
 
 function formatCurrency(value) {
@@ -261,15 +270,24 @@ function App() {
           <a href="#method" onClick={() => setMenuOpen(false)}>
             Method
           </a>
+          <a href="#john" onClick={() => setMenuOpen(false)}>
+            John
+          </a>
           <a href="#contact" onClick={() => setMenuOpen(false)}>
             Contact
           </a>
         </nav>
 
-        <a className="header-action" href="#stays">
-          <Search size={17} />
-          Check dates
-        </a>
+        <div className="header-actions">
+          <a className="header-action phone-action" href={contact.phoneHref}>
+            <Phone size={17} />
+            {contact.phone}
+          </a>
+          <a className="header-action" href="#stays">
+            <Search size={17} />
+            Check dates
+          </a>
+        </div>
       </header>
 
       <main id="top">
@@ -365,6 +383,45 @@ function App() {
                 </li>
               ))}
             </ul>
+          </div>
+        </section>
+
+        <section className="expert-section" id="john">
+          <div className="expert-intro">
+            <p className="section-kicker">Your Vacation Rental Expert</p>
+            <h2>John Carpenter knows the vacation rental game from the inside.</h2>
+          </div>
+          <div className="expert-profile">
+            <div className="expert-avatar" aria-hidden="true">
+              <UserRound size={34} />
+              <span>JC</span>
+            </div>
+            <div className="expert-copy">
+              <span className="expert-role">Lead stay strategist</span>
+              <h3>{contact.name}</h3>
+              <p>
+                John Carpenter has spent 22 years in vacation rentals, helping guests, owners, and
+                groups understand what actually makes a stay work. He knows how to spot the value
+                hidden between listings: the right location, the right sleeping setup, and the right
+                amount of togetherness without crowding everyone under one roof.
+              </p>
+              <p>
+                A Hawaii local with a love for Florida too, John is happiest around tropical
+                weather, warm water, and the kind of places where families can slow down and enjoy
+                each other. That is the spirit behind VacationRentalExpertz: smart beach stays,
+                honest guidance, and more room for the good parts of the trip.
+              </p>
+              <div className="expert-actions">
+                <a href={contact.phoneHref}>
+                  <Phone size={18} />
+                  Call John at {contact.phone}
+                </a>
+                <a href={`mailto:${contact.email}`}>
+                  <Mail size={18} />
+                  {contact.email}
+                </a>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -663,12 +720,21 @@ function App() {
         <section className="contact-section" id="contact">
           <div>
             <p className="section-kicker">Plan A Group Stay</p>
-            <h2>Tell us the beach, headcount, and dates. We will find the right two-condo fit.</h2>
+            <h2>Tell John the beach, headcount, and dates. He will find the right two-condo fit.</h2>
+            <p className="contact-person">
+              {contact.name} | Vacation rental expert with 22 years of experience
+            </p>
           </div>
-          <a className="contact-button" href="mailto:stays@vacationrentalexpertz.com">
-            <Mail size={18} />
-            stays@vacationrentalexpertz.com
-          </a>
+          <div className="contact-actions">
+            <a className="contact-button" href={contact.phoneHref}>
+              <Phone size={18} />
+              {contact.phone}
+            </a>
+            <a className="contact-button secondary-contact" href={`mailto:${contact.email}`}>
+              <Mail size={18} />
+              {contact.email}
+            </a>
+          </div>
         </section>
       </main>
 
@@ -679,7 +745,9 @@ function App() {
         </div>
         <div className="footer-links">
           <a href="#stays">Combo stays</a>
-          <a href="mailto:stays@vacationrentalexpertz.com">Contact</a>
+          <a href="#john">John Carpenter</a>
+          <a href={contact.phoneHref}>{contact.phone}</a>
+          <a href={`mailto:${contact.email}`}>Contact</a>
         </div>
       </footer>
     </div>
