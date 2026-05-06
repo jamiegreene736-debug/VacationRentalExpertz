@@ -25,6 +25,11 @@ function normalizeCollection(stay) {
       : [],
     units: Array.isArray(stay.units) ? stay.units.filter((unit) => unit?.name || unit?.detail) : [],
     amenities: Array.isArray(stay.amenities) ? stay.amenities.filter(Boolean) : [],
+    seasonalPricing: Array.isArray(stay.seasonalPricing)
+      ? stay.seasonalPricing.filter((rate) => rate?.label)
+      : [],
+    pricingSource: stay.pricingSource || "",
+    pricingNote: stay.pricingNote || "",
     bookingUrl: stay.bookingUrl || "",
     guestyListingId: stay.guestyListingId || stay._id || stay.id || "",
   };

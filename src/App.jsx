@@ -20,30 +20,31 @@ import {
   Search,
   Sparkles,
   Users,
-  UserRound,
   X,
 } from "lucide-react";
 import logoImage from "./assets/brand/vacation-rental-expertz-header.svg";
 import mobileLogoImage from "./assets/brand/vacation-rental-expertz-header-mobile.svg";
+import johnHeadshot from "./assets/brand/john-carpenter-headshot.jpg";
 import { fetchGuestyCollections } from "./guesty";
 
 const stats = [
-  { value: "2x", label: "nearby beach condos instead of one oversized house" },
-  { value: "6BR", label: "group-size comfort without the beachfront mansion price" },
+  { value: "2x", label: "nearby resort condos instead of one oversized house" },
+  { value: "6BR", label: "group-size comfort without the resort-home markup" },
   { value: "2 doors", label: "close for the fun, separate for wind-down time" },
 ];
 
 const trustPoints = [
-  "Two 3-bedroom beach condos are often far easier on the budget than a rare 6-bedroom beach house.",
-  "Your group stays in the same resort, building, or walkable beach cluster for pool days, beach runs, and shared meals.",
+  "Two 3-bedroom resort condos are often far easier on the budget than a rare 6-bedroom vacation home.",
+  "We work closely with property managers to curate the best two condos to combine at each resort or community.",
+  "Our sweet spots are Hawaii resort stays and Central Florida / Disney World area group trips.",
   "When the day winds down, everyone gets useful separation: two kitchens, two living rooms, and quieter sleeping zones.",
   "Every combo clearly discloses that the stay is made from two separate nearby units.",
 ];
 
 const processSteps = [
   {
-    title: "Curate The Stay",
-    body: "Each two-condo beach stay is presented as one clear group option with the right photos, bedroom count, pricing, and disclosure.",
+    title: "Curate With Managers",
+    body: "We work with property managers to identify the best two nearby condos to combine at the resort, then present them as one clear group option.",
     icon: <Layers size={22} />,
   },
   {
@@ -52,8 +53,8 @@ const processSteps = [
     icon: <Check size={22} />,
   },
   {
-    title: "Sell The Story",
-    body: "Each page explains the simple value: beach groups stay close for the fun, save against a giant house, and get separation at night.",
+    title: "Show The Fit",
+    body: "Each listing explains why the pair works: same resort or nearby community, better value than a giant house, and useful separation at night.",
     icon: <DoorOpen size={22} />,
   },
 ];
@@ -82,6 +83,17 @@ function formatCurrency(value) {
   }).format(value);
 }
 
+function formatRateRange(rate) {
+  const minPrice = Number(rate?.minPrice || rate?.price || 0);
+  const maxPrice = Number(rate?.maxPrice || rate?.price || 0);
+
+  if (minPrice && maxPrice && minPrice !== maxPrice) {
+    return `${formatCurrency(minPrice)} - ${formatCurrency(maxPrice)}`;
+  }
+
+  return formatCurrency(rate?.price || minPrice || maxPrice);
+}
+
 function getStatusLabel(status) {
   if (status === "loading") return "Loading stays";
   if (status === "live") return "Live stays";
@@ -106,7 +118,7 @@ function createInquiryUrl(stay, search) {
       `Guests: ${search.guests || "Flexible"}`,
       `Bedroom target: ${search.bedrooms || stay.bedrooms}`,
       "",
-      "Please send availability, pricing, and the details for both included units.",
+      "Please send availability, seasonal pricing, and the details for both included condos.",
     ].join("\n"),
   });
 
@@ -301,21 +313,22 @@ function App() {
           <div className="hero-content">
             <p className="eyebrow">
               <Sparkles size={16} />
-              Same beach. Better value. Breathing room.
+              Same resort energy. Better value. Breathing room.
             </p>
-            <h1 aria-label="Two Condos. One Beach Stay.">
+            <h1 aria-label="Two Condos. One Resort Stay.">
               <span className="hero-name-part">Two Condos.</span>
-              <span className="hero-name-part">One Beach</span>
+              <span className="hero-name-part">One Resort</span>
               <span className="hero-name-part">Stay.</span>
             </h1>
             <p className="hero-copy">
-              Six-bedroom beach houses can be painfully expensive. We pair two nearby 3-bedroom
-              condos so your group stays together for the beach days, dinners, and memories, then
-              gets just enough separation when it is time to wind down.
+              Six-bedroom beach homes and Disney-area vacation houses can get painfully expensive.
+              We work closely with property managers to curate two nearby 3-bedroom condos in the
+              same resort or community, so your group stays together for the fun and still gets
+              space when it is time to wind down.
             </p>
             <div className="hero-actions">
               <a className="primary-action" href="#stays">
-                Find smarter beach stays
+                Find smarter resort stays
                 <ArrowRight size={18} />
               </a>
               <a className="secondary-action" href="#method">
@@ -331,7 +344,7 @@ function App() {
               <input
                 name="city"
                 type="search"
-                placeholder="Beach, resort, city"
+                placeholder="Resort, city, area"
                 value={search.city}
                 onChange={updateSearch}
               />
@@ -366,14 +379,15 @@ function App() {
 
         <section className="intro-section">
           <div>
-            <p className="section-kicker">The Smarter Beach Play</p>
+            <p className="section-kicker">The Smarter Resort Play</p>
             <h2>Close enough for the fun. Separate enough for the quiet.</h2>
           </div>
           <div className="intro-copy">
             <p>
-              A true 6-bedroom house on the beach can price out the whole trip. VacationRentalExpertz
-              packages compatible nearby condos as one clear group option, so families and friends
-              can stay close for the fun while still having space to reset when the day gets long.
+              A true 6-bedroom home in Hawaii or near Disney World can price out the whole trip.
+              VacationRentalExpertz curates compatible nearby condos with property managers and
+              packages them as one clear group option, so families and friends can stay close for
+              the fun while still having space to reset when the day gets long.
             </p>
             <ul className="trust-list">
               {trustPoints.map((point) => (
@@ -392,24 +406,25 @@ function App() {
             <h2>John Carpenter knows the vacation rental game from the inside.</h2>
           </div>
           <div className="expert-profile">
-            <div className="expert-avatar" aria-hidden="true">
-              <UserRound size={34} />
-              <span>JC</span>
+            <div className="expert-photo-card">
+              <img src={johnHeadshot} alt="John Carpenter" />
+              <span>22 years in vacation rentals</span>
             </div>
             <div className="expert-copy">
               <span className="expert-role">Lead stay strategist</span>
               <h3>{contact.name}</h3>
               <p>
                 John Carpenter has spent 22 years in vacation rentals, helping guests, owners, and
-                groups understand what actually makes a stay work. He knows how to spot the value
-                hidden between listings: the right location, the right sleeping setup, and the right
-                amount of togetherness without crowding everyone under one roof.
+                property managers understand what actually makes a group stay work. He knows how to
+                spot the value hidden between listings: the right resort, the right sleeping setup,
+                the right condo pair, and the right amount of togetherness without crowding everyone
+                under one roof.
               </p>
               <p>
                 A Hawaii local with a love for Florida too, John is happiest around tropical
-                weather, warm water, and the kind of places where families can slow down and enjoy
-                each other. That is the spirit behind VacationRentalExpertz: smart beach stays,
-                honest guidance, and more room for the good parts of the trip.
+                weather, warm water, and easy access to the good stuff, from island resort days to
+                Central Florida theme-park trips. That is the spirit behind VacationRentalExpertz:
+                smart resort stays, honest guidance, and more room for the good parts of the trip.
               </p>
               <div className="expert-actions">
                 <a href={contact.phoneHref}>
@@ -428,8 +443,8 @@ function App() {
         <section className="stays-section" id="stays">
           <div className="section-heading">
             <div>
-              <p className="section-kicker">Beach Condo Combos</p>
-              <h2>Skip the mansion markup. Keep the beachfront feeling.</h2>
+              <p className="section-kicker">Resort Condo Combos</p>
+              <h2>Skip the mansion markup. Keep the destination feeling.</h2>
             </div>
             <div className="live-pill" data-status={guestyStatus}>
               <span />
@@ -518,11 +533,12 @@ function App() {
             const descriptionSections = getDescriptionSections(activeStay);
             const bookingUrl = createBookingUrl(activeStay, search);
             const hasDirectBookingUrl = Boolean(activeStay.bookingUrl);
+            const seasonalPricing = Array.isArray(activeStay.seasonalPricing) ? activeStay.seasonalPricing : [];
             const listingFacts = [
               { icon: <BedDouble size={19} />, label: formatMetric(activeStay.bedrooms, "bedroom") },
               { icon: <Bath size={19} />, label: formatMetric(activeStay.bathrooms, "bath") },
               { icon: <Users size={19} />, label: activeStay.guests ? `Sleeps ${activeStay.guests}` : "" },
-              { icon: <Home size={19} />, label: "Two-place stay" },
+              { icon: <Home size={19} />, label: "Curated condo pair" },
             ].filter((fact) => fact.label);
 
             return (
@@ -618,6 +634,19 @@ function App() {
                         </div>
                       )}
 
+                      <section className="curation-note">
+                        <div>
+                          <span>Curated with property managers</span>
+                          <h3>Two condos chosen to work as one group stay.</h3>
+                        </div>
+                        <p>
+                          VacationRentalExpertz works with property managers to understand the resort
+                          layout, walking distance, bedroom mix, and guest flow before combining
+                          condos. The result is a clearly disclosed two-unit stay with togetherness
+                          for the main trip and separation when people need quiet.
+                        </p>
+                      </section>
+
                       {descriptionSections.length > 0 && (
                         <div className="listing-description">
                           {descriptionSections.map((section) => (
@@ -628,6 +657,39 @@ function App() {
                           ))}
                         </div>
                       )}
+
+                      <section className="seasonal-pricing-section">
+                        <div className="seasonal-pricing-heading">
+                          <h3>Seasonal pricing</h3>
+                          <span>{activeStay.pricingSource || "Guesty rates"}</span>
+                        </div>
+
+                        {seasonalPricing.length > 0 ? (
+                          <div className="seasonal-rate-grid">
+                            {seasonalPricing.map((rate) => (
+                              <div
+                                className="seasonal-rate"
+                                key={`${rate.label}-${rate.price}-${rate.minPrice}-${rate.maxPrice}`}
+                              >
+                                <span>{rate.label}</span>
+                                <strong>{formatRateRange(rate)}</strong>
+                                {rate.detail && <small>{rate.detail}</small>}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="seasonal-rate seasonal-rate-wide">
+                            <span>Live seasonal quote</span>
+                            <strong>{formatCurrency(activeStay.price)}</strong>
+                            <small>
+                              Rates vary by season, holidays, weekends, availability, and the exact two
+                              condos assigned. Enter dates or contact John for the current Guesty quote.
+                            </small>
+                          </div>
+                        )}
+
+                        {activeStay.pricingNote && <p>{activeStay.pricingNote}</p>}
+                      </section>
 
                       {activeStay.amenities.length > 0 && (
                         <section className="amenity-section">
@@ -689,6 +751,14 @@ function App() {
                         <CalendarDays size={16} />
                         Dates and guest count carry into the booking request.
                       </p>
+
+                      <div className="booking-helper">
+                        <img src={johnHeadshot} alt="" />
+                        <div>
+                          <strong>Need help matching the right two condos?</strong>
+                          <a href={contact.phoneHref}>Call John at {contact.phone}</a>
+                        </div>
+                      </div>
                     </aside>
                   </div>
                 </article>
@@ -720,9 +790,9 @@ function App() {
         <section className="contact-section" id="contact">
           <div>
             <p className="section-kicker">Plan A Group Stay</p>
-            <h2>Tell John the beach, headcount, and dates. He will find the right two-condo fit.</h2>
+            <h2>Tell John the destination, headcount, and dates. He will find the right two-condo fit.</h2>
             <p className="contact-person">
-              {contact.name} | Vacation rental expert with 22 years of experience
+              {contact.name} | Hawaii, Central Florida, Disney World area, and tropical resort stays
             </p>
           </div>
           <div className="contact-actions">
@@ -741,7 +811,7 @@ function App() {
       <footer className="site-footer">
         <div>
           <strong>VacationRentalExpertz</strong>
-          <p>Two places. One amazing beach stay.</p>
+          <p>Two places. One amazing resort stay.</p>
         </div>
         <div className="footer-links">
           <a href="#stays">Combo stays</a>

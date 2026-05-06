@@ -466,23 +466,30 @@ h3 {
   grid-template-columns: auto minmax(0, 1fr);
 }
 
-.expert-avatar {
-  align-items: center;
+.expert-photo-card {
   background: linear-gradient(135deg, var(--reef), #08315d 55%, var(--lagoon));
   border-radius: 8px;
   box-shadow: 0 20px 54px rgba(6, 32, 68, 0.18);
   color: #fff;
-  display: grid;
-  gap: 0.35rem;
-  height: 118px;
-  justify-items: center;
-  width: 118px;
+  overflow: hidden;
+  width: min(28vw, 190px);
 }
 
-.expert-avatar span {
-  color: #f7c160;
-  font-size: 1.22rem;
+.expert-photo-card img {
+  aspect-ratio: 4 / 5;
+  height: auto;
+  object-fit: cover;
+  object-position: center top;
+  width: 100%;
+}
+
+.expert-photo-card span {
+  display: block;
+  color: #fff7dd;
+  font-size: 0.78rem;
   font-weight: 950;
+  line-height: 1.25;
+  padding: 0.65rem 0.7rem;
 }
 
 .expert-copy {
@@ -812,7 +819,7 @@ h3 {
 }
 
 .listing-modal-backdrop {
-  align-items: center;
+  align-items: flex-start;
   background: rgba(4, 21, 48, 0.74);
   display: flex;
   inset: 0;
@@ -828,10 +835,10 @@ h3 {
   border-radius: 8px;
   box-shadow: 0 36px 110px rgba(0, 0, 0, 0.32);
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  height: min(900px, calc(100svh - 2rem));
+  grid-template-rows: auto auto;
   max-width: 1180px;
-  overflow: hidden;
+  min-height: min(900px, calc(100svh - 2rem));
+  overflow: visible;
   position: relative;
   width: 100%;
 }
@@ -860,7 +867,7 @@ h3 {
 
 .gallery-stage {
   background: #d9f2f1;
-  height: min(36svh, 400px);
+  height: clamp(320px, 42vw, 520px);
   overflow: hidden;
   position: relative;
 }
@@ -939,12 +946,16 @@ h3 {
 }
 
 .listing-content {
+  background: #ffffff;
   display: grid;
   gap: clamp(1.2rem, 3vw, 2rem);
   grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
-  min-height: 0;
-  overflow-y: auto;
   padding: clamp(1rem, 3vw, 2rem);
+}
+
+.listing-main {
+  background: #ffffff;
+  min-width: 0;
 }
 
 .listing-main h2 {
@@ -977,18 +988,53 @@ h3 {
   text-align: center;
 }
 
+.curation-note {
+  background:
+    linear-gradient(135deg, rgba(0, 154, 154, 0.1), rgba(226, 161, 67, 0.12)),
+    #ffffff;
+  border: 1px solid rgba(0, 154, 154, 0.16);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: minmax(180px, 0.48fr) minmax(0, 1fr);
+  margin-bottom: 1.35rem;
+  padding: 1rem;
+}
+
+.curation-note span {
+  color: var(--lagoon);
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 950;
+  margin-bottom: 0.35rem;
+  text-transform: uppercase;
+}
+
+.curation-note h3 {
+  color: var(--reef);
+  margin-bottom: 0;
+}
+
+.curation-note p {
+  color: var(--muted);
+  line-height: 1.7;
+  margin-bottom: 0;
+}
+
 .listing-description {
   display: grid;
   gap: 1.25rem;
 }
 
 .listing-description section,
+.seasonal-pricing-section,
 .amenity-section {
   border-top: 1px solid var(--line);
   padding-top: 1.1rem;
 }
 
 .listing-description h3,
+.seasonal-pricing-section h3,
 .amenity-section h3 {
   color: var(--reef);
 }
@@ -996,6 +1042,79 @@ h3 {
 .listing-description p {
   color: var(--muted);
   line-height: 1.74;
+  margin-bottom: 0;
+}
+
+.seasonal-pricing-section {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1.35rem;
+}
+
+.seasonal-pricing-heading {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.seasonal-pricing-heading h3 {
+  margin-bottom: 0;
+}
+
+.seasonal-pricing-heading span {
+  background: #f2fbfb;
+  border: 1px solid rgba(0, 154, 154, 0.16);
+  border-radius: 999px;
+  color: var(--lagoon);
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  font-weight: 950;
+  min-height: 32px;
+  padding: 0.42rem 0.7rem;
+}
+
+.seasonal-rate-grid {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.seasonal-rate {
+  background: #fffaf2;
+  border: 1px solid rgba(226, 161, 67, 0.28);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.85rem;
+}
+
+.seasonal-rate-wide {
+  margin-right: auto;
+  max-width: 620px;
+}
+
+.seasonal-rate span {
+  color: #68421c;
+  font-size: 0.78rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.seasonal-rate strong {
+  color: var(--reef);
+  font-size: 1.38rem;
+  line-height: 1;
+}
+
+.seasonal-rate small,
+.seasonal-pricing-section p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.seasonal-pricing-section p {
+  font-size: 0.9rem;
   margin-bottom: 0;
 }
 
@@ -1037,7 +1156,7 @@ h3 {
   gap: 1rem;
   padding: 1rem;
   position: sticky;
-  top: 0;
+  top: 1rem;
 }
 
 .booking-kicker {
@@ -1111,6 +1230,39 @@ h3 {
   color: var(--lagoon);
   flex: 0 0 auto;
   margin-top: 0.1rem;
+}
+
+.booking-helper {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 0.75rem;
+}
+
+.booking-helper img {
+  border-radius: 8px;
+  height: 62px;
+  object-fit: cover;
+  object-position: center top;
+  width: 62px;
+}
+
+.booking-helper strong {
+  color: var(--reef);
+  display: block;
+  font-size: 0.92rem;
+  line-height: 1.25;
+  margin-bottom: 0.25rem;
+}
+
+.booking-helper a {
+  color: var(--lagoon);
+  font-size: 0.86rem;
+  font-weight: 900;
 }
 
 .method-section {
@@ -1355,9 +1507,13 @@ h3 {
     grid-template-columns: 1fr;
   }
 
-  .expert-avatar {
-    height: 98px;
-    width: 98px;
+  .expert-photo-card {
+    width: min(220px, 70vw);
+  }
+
+  .curation-note,
+  .seasonal-rate-grid {
+    grid-template-columns: 1fr;
   }
 
   .stay-card {
@@ -1384,7 +1540,7 @@ h3 {
 
   .listing-modal {
     border-radius: 0;
-    max-height: 100svh;
+    min-height: 100svh;
   }
 
   .gallery-stage {

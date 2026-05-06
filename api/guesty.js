@@ -76,6 +76,22 @@ function getQuery(request) {
   return new URL(request.url, `https://${host}`).searchParams;
 }
 
+function getGuestyCredentials(mode) {
+  const modePrefix = mode === "open" ? "OPEN" : "BOOKING";
+  const clientId = cleanEnvValue(
+    process.env[`GUESTY_${modePrefix}_CLIENT_ID`] ||
+      process.env[`GUESTY_${modePrefix}_ENGINE_CLIENT_ID`] ||
+      process.env.GUESTY_CLIENT_ID,
+  );
+  const clientSecret = cleanEnvValue(
+    process.env[`GUESTY_${modePrefix}_CLIENT_SECRET`] ||
+      process.env[`GUESTY_${modePrefix}_ENGINE_CLIENT_SECRET`] ||
+      process.env.GUESTY_CLIENT_SECRET,
+  );
+
+  return { clientId, clientSecret };
+}
+
 async function getToken(mode) {
   const now = Date.now();
 
@@ -83,11 +99,18 @@ async function getToken(mode) {
     return tokenCache.token;
   }
 
-  const clientId = cleanEnvValue(process.env.GUESTY_CLIENT_ID);
-  const clientSecret = cleanEnvValue(process.env.GUESTY_CLIENT_SECRET);
+  const { clientId, clientSecret } = getGuestyCredentials(mode);
 
   if (!clientId || !clientSecret) {
-    throw new Error("Guesty credentials are missing. Add GUESTY_CLIENT_ID and GUESTY_CLIENT_SECRET.");
+    if (mode === "open") {
+      throw new Error(
+        "Guesty Open API credentials are missing. Add GUESTY_OPEN_CLIENT_ID and GUESTY_OPEN_CLIENT_SECRET, or use the fallback GUESTY_CLIENT_ID and GUESTY_CLIENT_SECRET.",
+      );
+    }
+
+    throw new Error(
+      "Guesty Booking Engine API credentials are missing. Add GUESTY_BOOKING_CLIENT_ID and GUESTY_BOOKING_CLIENT_SECRET, or use the fallback GUESTY_CLIENT_ID and GUESTY_CLIENT_SECRET.",
+    );
   }
 
   let tokenResponse;
@@ -201,6 +224,136 @@ function toNumber(value) {
   return Number.isFinite(number) ? number : 0;
 }
 
+function getRateNumber(value) {
+  if (value == null) return 0;
+
+  if (typeof value === "number" || typeof value === "string") {
+    return toNumber(value);
+  }
+
+  if (typeof value !== "object") return 0;
+
+  const candidate =
+    value.amount ??
+    value.rate ??
+    value.price ??
+    value.nightly ??
+    value.nightlyRate ??
+    value.basePrice ??
+    value.base ??
+    value.value ??
+    value.min ??
+    value.max;
+
+  return getRateNumber(candidate);
+}
+
+function getNightlyRateEntries(nightlyRates) {
+  if (!nightlyRates) return [];
+
+  if (Array.isArray(nightlyRates)) {
+    return nightlyRates
+      .map((entry) => {
+        if (typeof entry !== "object") {
+          return { date: "", price: getRateNumber(entry) };
+        }
+
+        return {
+          date: entry.date || entry.day || entry.startDate || entry.from || "",
+          price: getRateNumber(entry),
+        };
+      })
+      .filter((entry) => entry.price > 0);
+  }
+
+  if (typeof nightlyRates !== "object") return [];
+
+  return Object.entries(nightlyRates)
+    .map(([date, value]) => ({ date, price: getRateNumber(value) }))
+    .filter((entry) => entry.price > 0);
+}
+
+function getSeasonBucket(dateValue) {
+  const date = new Date(`${dateValue}T00:00:00Z`);
+
+  if (!dateValue || Number.isNaN(date.getTime())) return null;
+
+  const month = date.getUTCMonth();
+
+  if (month === 11 || month <= 1) return { order: 1, label: "Winter / holiday season" };
+  if (month >= 2 && month <= 4) return { order: 2, label: "Spring break season" };
+  if (month >= 5 && month <= 7) return { order: 3, label: "Summer travel season" };
+
+  return { order: 4, label: "Fall value season" };
+}
+
+function summarizeRates(label, prices, detail) {
+  const cleanPrices = prices.filter((price) => Number.isFinite(price) && price > 0);
+
+  if (cleanPrices.length === 0) return null;
+
+  const minPrice = Math.min(...cleanPrices);
+  const maxPrice = Math.max(...cleanPrices);
+  const averagePrice = Math.round(cleanPrices.reduce((total, price) => total + price, 0) / cleanPrices.length);
+
+  return {
+    label,
+    price: averagePrice,
+    minPrice: Math.round(minPrice),
+    maxPrice: Math.round(maxPrice),
+    detail,
+  };
+}
+
+function getSeasonalPricing(listing) {
+  const nightlyRateEntries = getNightlyRateEntries(listing.nightlyRates);
+  const seasonGroups = new Map();
+
+  nightlyRateEntries.forEach((entry) => {
+    const season = getSeasonBucket(entry.date);
+    if (!season) return;
+
+    const existing = seasonGroups.get(season.label) || { ...season, prices: [] };
+    existing.prices.push(entry.price);
+    seasonGroups.set(season.label, existing);
+  });
+
+  const seasonalRates = [...seasonGroups.values()]
+    .sort((a, b) => a.order - b.order)
+    .map((season) => summarizeRates(season.label, season.prices, "Guesty nightly calendar range"))
+    .filter(Boolean);
+
+  if (seasonalRates.length > 0) return seasonalRates;
+
+  const prices = listing.prices || {};
+  const fieldRates = [
+    ["Base nightly rate", prices.basePrice ?? prices.base ?? prices.nightly ?? listing.price],
+    ["Weekend nightly rate", prices.weekendPrice ?? prices.weekend ?? prices.weekendRate],
+    ["Weekly stay rate", prices.weeklyPrice ?? prices.weekly],
+    ["Monthly stay rate", prices.monthlyPrice ?? prices.monthly],
+  ]
+    .map(([label, value]) => summarizeRates(label, [getRateNumber(value)], "Guesty pricing field"))
+    .filter(Boolean);
+
+  return fieldRates.filter(
+    (rate, index, rates) => rates.findIndex((candidate) => candidate.label === rate.label && candidate.price === rate.price) === index,
+  );
+}
+
+function getPricingSource(listing, seasonalPricing = getSeasonalPricing(listing)) {
+  if (getNightlyRateEntries(listing.nightlyRates).length > 0) return "Guesty nightly calendar";
+  if (seasonalPricing.length > 0) return "Guesty pricing fields";
+  return "Live Guesty quote";
+}
+
+function getPricingNote(listing) {
+  if (getNightlyRateEntries(listing.nightlyRates).length > 0) {
+    return "Seasonal ranges are summarized from the nightly rates Guesty returns for this listing. Exact totals can still change with fees, taxes, availability, and the selected dates.";
+  }
+
+  return "Exact seasonal totals are confirmed from Guesty when dates are selected because holidays, weekends, fees, taxes, and availability can change the final quote.";
+}
+
 function cleanText(value) {
   if (!value) return "";
 
@@ -302,14 +455,14 @@ function getBookingUrl(listing) {
 }
 
 function getPrice(listing) {
-  const nightlyRates = Object.values(listing.nightlyRates || {}).map(Number);
+  const nightlyRates = getNightlyRateEntries(listing.nightlyRates).map((entry) => entry.price);
   const numericRates = nightlyRates.filter((rate) => Number.isFinite(rate) && rate > 0);
 
   if (numericRates.length > 0) {
     return Math.round(numericRates.reduce((total, rate) => total + rate, 0) / numericRates.length);
   }
 
-  return toNumber(listing.price || listing.prices?.basePrice || listing.prices?.base || listing.prices?.nightly);
+  return getRateNumber(listing.price || listing.prices?.basePrice || listing.prices?.base || listing.prices?.nightly);
 }
 
 function getLocation(listing) {
@@ -365,6 +518,7 @@ function normalizeGuestyListing(listing) {
   const text = getListingText(listing);
   const title = listing.title || listing.nickname || "Untitled Guesty listing";
   const image = photos[0] || "";
+  const seasonalPricing = getSeasonalPricing(listing);
 
   return {
     id: getListingId(listing),
@@ -384,6 +538,9 @@ function normalizeGuestyListing(listing) {
     descriptionSections,
     units: [],
     amenities: normalizeAmenities(listing.amenities),
+    seasonalPricing,
+    pricingSource: getPricingSource(listing, seasonalPricing),
+    pricingNote: getPricingNote(listing),
     bookingUrl: getBookingUrl(listing),
     guestyListingId: getListingId(listing),
   };
