@@ -1,6 +1,6 @@
 # VacationRentalExpertz
 
-Gorgeous Vite + React website for `www.vacationrentalexpertz.com`, built around a clear two-unit beach rental model: nearby condos are combined into one guest-facing group stay so travelers can avoid the premium of a rare 6-bedroom beach house while still getting togetherness, shared amenities, and wind-down separation.
+Gorgeous Vite + React website for `www.vacationrentalexpertz.com`, built around a clear two-unit resort rental model: nearby condos are combined into one guest-facing group stay so travelers can avoid the premium of an oversized vacation home while still getting togetherness, shared amenities, the right bedroom mix, and wind-down separation.
 
 ## Run Locally
 

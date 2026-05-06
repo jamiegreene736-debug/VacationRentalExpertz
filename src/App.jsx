@@ -29,12 +29,12 @@ import { fetchGuestyCollections } from "./guesty";
 
 const stats = [
   { value: "2x", label: "nearby resort condos instead of one oversized house" },
-  { value: "6BR", label: "group-size comfort without the resort-home markup" },
+  { value: "2+3", label: "flexible bedroom mixes matched to the group" },
   { value: "2 doors", label: "close for the fun, separate for wind-down time" },
 ];
 
 const trustPoints = [
-  "Two 3-bedroom resort condos are often far easier on the budget than a rare 6-bedroom vacation home.",
+  "The best combination may be 2 bedrooms plus 3 bedrooms, 3 plus 3, or another mix that fits the group.",
   "We work closely with property managers to curate the best two condos to combine at each resort or community.",
   "Our sweet spots are Hawaii resort stays and Central Florida / Disney World area group trips.",
   "When the day winds down, everyone gets useful separation: two kitchens, two living rooms, and quieter sleeping zones.",
@@ -76,7 +76,7 @@ const contact = {
 const aboutHighlights = [
   {
     title: "What we curate",
-    body: "Combined resort stays made from two nearby condos that already work well together for larger groups.",
+    body: "Combined resort stays made from two nearby condos with the right bedroom mix, layout, and value for the group.",
   },
   {
     title: "Who we work with",
@@ -349,10 +349,10 @@ function App() {
               <span className="hero-name-part">Stay.</span>
             </h1>
             <p className="hero-copy">
-              Six-bedroom beach homes and Disney-area vacation houses can get painfully expensive.
-              We work closely with property managers to curate two nearby 3-bedroom condos in the
-              same resort or community, so your group stays together for the fun and still gets
-              space when it is time to wind down.
+              Large beach homes and Disney-area vacation houses can get painfully expensive. We work
+              closely with property managers to curate two nearby condos with the right bedroom mix,
+              like 2 bedrooms plus 3 bedrooms or 3 plus 3, so your group stays together for the fun
+              and still gets space when it is time to wind down.
             </p>
             <div className="hero-actions">
               <a className="primary-action" href="#stays">
@@ -412,10 +412,11 @@ function App() {
           </div>
           <div className="intro-copy">
             <p>
-              A true 6-bedroom home in Hawaii or near Disney World can price out the whole trip.
-              VacationRentalExpertz curates compatible nearby condos with property managers and
-              packages them as one clear group option, so families and friends can stay close for
-              the fun while still having space to reset when the day gets long.
+              A large home in Hawaii or near Disney World can price out the whole trip.
+              VacationRentalExpertz curates compatible nearby condos with property managers, choosing
+              the bedroom mix that actually fits the group, and packages them as one clear option so
+              families and friends can stay close for the fun while still having space to reset when
+              the day gets long.
             </p>
             <ul className="trust-list">
               {trustPoints.map((point) => (
