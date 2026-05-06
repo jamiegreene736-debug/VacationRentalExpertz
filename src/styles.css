@@ -402,7 +402,7 @@ h3 {
 }
 
 .intro-section,
-.expert-section,
+.about-section,
 .stays-section,
 .method-section,
 .contact-section {
@@ -416,7 +416,8 @@ h3 {
 }
 
 .intro-copy p,
-.expert-copy p,
+.about-intro p,
+.team-copy p,
 .process-card p {
   color: var(--muted);
   font-size: 1.02rem;
@@ -446,27 +447,92 @@ h3 {
   flex: 0 0 auto;
 }
 
-.expert-section {
+.about-section {
   background:
     linear-gradient(135deg, rgba(226, 161, 67, 0.14), transparent 38%),
     linear-gradient(180deg, #ffffff 0%, #f2fbfb 100%);
   display: grid;
   gap: clamp(2rem, 4vw, 4rem);
-  grid-template-columns: minmax(0, 0.85fr) minmax(340px, 1.15fr);
+  grid-template-columns: minmax(0, 0.78fr) minmax(360px, 1.22fr);
 }
 
-.expert-intro h2 {
+.about-intro {
+  align-content: start;
+  display: grid;
+  gap: 1rem;
+}
+
+.about-intro h2 {
   max-width: 760px;
 }
 
-.expert-profile {
+.about-intro p {
+  margin-bottom: 0;
+  max-width: 680px;
+}
+
+.about-content {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.about-pillars {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.about-pillar {
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.9rem;
+}
+
+.about-pillar span,
+.team-heading span,
+.team-role {
+  color: var(--lagoon);
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.about-pillar p {
+  color: var(--muted);
+  line-height: 1.55;
+  margin-bottom: 0;
+}
+
+.team-section {
+  display: grid;
+  gap: 1rem;
+}
+
+.team-heading {
+  align-items: end;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.team-heading h3 {
+  color: var(--reef);
+  font-size: clamp(1.35rem, 2vw, 2rem);
+  margin-bottom: 0;
+}
+
+.team-profile {
   align-items: start;
   display: grid;
   gap: 1.25rem;
   grid-template-columns: auto minmax(0, 1fr);
 }
 
-.expert-photo-card {
+.team-photo-card {
   background: linear-gradient(135deg, var(--reef), #08315d 55%, var(--lagoon));
   border-radius: 8px;
   box-shadow: 0 20px 54px rgba(6, 32, 68, 0.18);
@@ -475,7 +541,7 @@ h3 {
   width: min(28vw, 190px);
 }
 
-.expert-photo-card img {
+.team-photo-card img {
   aspect-ratio: 4 / 5;
   height: auto;
   object-fit: cover;
@@ -483,7 +549,7 @@ h3 {
   width: 100%;
 }
 
-.expert-photo-card span {
+.team-photo-card span {
   display: block;
   color: #fff7dd;
   font-size: 0.78rem;
@@ -492,36 +558,31 @@ h3 {
   padding: 0.65rem 0.7rem;
 }
 
-.expert-copy {
+.team-copy {
   background: rgba(255, 255, 255, 0.78);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: clamp(1rem, 3vw, 1.5rem);
 }
 
-.expert-role {
-  color: var(--lagoon);
-  display: block;
-  font-size: 0.78rem;
-  font-weight: 950;
+.team-role {
   margin-bottom: 0.35rem;
-  text-transform: uppercase;
 }
 
-.expert-copy h3 {
+.team-copy h3 {
   color: var(--reef);
   font-size: clamp(1.8rem, 3vw, 2.8rem);
   margin-bottom: 0.8rem;
 }
 
-.expert-actions {
+.team-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
   margin-top: 1.25rem;
 }
 
-.expert-actions a {
+.team-actions a {
   align-items: center;
   background: var(--reef);
   border-radius: 8px;
@@ -533,7 +594,7 @@ h3 {
   padding: 0 0.9rem;
 }
 
-.expert-actions a:last-child {
+.team-actions a:last-child {
   background: #ffffff;
   border: 1px solid var(--line);
   color: var(--reef);
@@ -1382,7 +1443,7 @@ h3 {
   .search-panel,
   .collection-grid,
   .intro-section,
-  .expert-section,
+  .about-section,
   .listing-content,
   .process-grid,
   .contact-section {
@@ -1503,11 +1564,12 @@ h3 {
     gap: 1rem;
   }
 
-  .expert-profile {
+  .about-pillars,
+  .team-profile {
     grid-template-columns: 1fr;
   }
 
-  .expert-photo-card {
+  .team-photo-card {
     width: min(220px, 70vw);
   }
 
@@ -1607,7 +1669,7 @@ h3 {
   .primary-action,
   .secondary-action,
   .contact-button,
-  .expert-actions a {
+  .team-actions a {
     width: 100%;
   }
 

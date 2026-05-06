@@ -73,6 +73,34 @@ const contact = {
   email: "stays@vacationrentalexpertz.com",
 };
 
+const aboutHighlights = [
+  {
+    title: "What we curate",
+    body: "Combined resort stays made from two nearby condos that already work well together for larger groups.",
+  },
+  {
+    title: "Who we work with",
+    body: "Property managers who know the resort layout, unit quality, guest flow, and which condos are actually close enough to combine.",
+  },
+  {
+    title: "Where we focus",
+    body: "Hawaii, Central Florida, the Disney World area, and tropical resort destinations where group space is expensive.",
+  },
+];
+
+const teamMembers = [
+  {
+    name: contact.name,
+    role: "Founder / Lead stay strategist",
+    badge: "22 years in vacation rentals",
+    image: johnHeadshot,
+    bio: [
+      "John Carpenter has spent 22 years in vacation rentals, helping guests, owners, and property managers understand what actually makes a group stay work. He knows how to spot the value hidden between listings: the right resort, the right sleeping setup, the right condo pair, and the right amount of togetherness without crowding everyone under one roof.",
+      "A Hawaii local with a love for Florida too, John is happiest around tropical weather, warm water, and easy access to the good stuff, from island resort days to Central Florida theme-park trips. That is the spirit behind VacationRentalExpertz: smart resort stays, honest guidance, and more room for the good parts of the trip.",
+    ],
+  },
+];
+
 function formatCurrency(value) {
   if (!value) return "Quote";
 
@@ -282,8 +310,8 @@ function App() {
           <a href="#method" onClick={() => setMenuOpen(false)}>
             Method
           </a>
-          <a href="#john" onClick={() => setMenuOpen(false)}>
-            John
+          <a href="#about" onClick={() => setMenuOpen(false)}>
+            About
           </a>
           <a href="#contact" onClick={() => setMenuOpen(false)}>
             Contact
@@ -400,42 +428,59 @@ function App() {
           </div>
         </section>
 
-        <section className="expert-section" id="john">
-          <div className="expert-intro">
-            <p className="section-kicker">Your Vacation Rental Expert</p>
-            <h2>John Carpenter knows the vacation rental game from the inside.</h2>
+        <section className="about-section" id="about">
+          <div className="about-intro">
+            <p className="section-kicker">About VacationRentalExpertz</p>
+            <h2>A small, hands-on agency for smarter group resort stays.</h2>
+            <p>
+              VacationRentalExpertz exists for the trips where one huge house costs too much, but
+              separate random rentals would scatter the group. We curate two-condo combinations with
+              property managers so guests can see the value, layout, and tradeoffs clearly before
+              they book.
+            </p>
           </div>
-          <div className="expert-profile">
-            <div className="expert-photo-card">
-              <img src={johnHeadshot} alt="John Carpenter" />
-              <span>22 years in vacation rentals</span>
+
+          <div className="about-content">
+            <div className="about-pillars">
+              {aboutHighlights.map((item) => (
+                <article className="about-pillar" key={item.title}>
+                  <span>{item.title}</span>
+                  <p>{item.body}</p>
+                </article>
+              ))}
             </div>
-            <div className="expert-copy">
-              <span className="expert-role">Lead stay strategist</span>
-              <h3>{contact.name}</h3>
-              <p>
-                John Carpenter has spent 22 years in vacation rentals, helping guests, owners, and
-                property managers understand what actually makes a group stay work. He knows how to
-                spot the value hidden between listings: the right resort, the right sleeping setup,
-                the right condo pair, and the right amount of togetherness without crowding everyone
-                under one roof.
-              </p>
-              <p>
-                A Hawaii local with a love for Florida too, John is happiest around tropical
-                weather, warm water, and easy access to the good stuff, from island resort days to
-                Central Florida theme-park trips. That is the spirit behind VacationRentalExpertz:
-                smart resort stays, honest guidance, and more room for the good parts of the trip.
-              </p>
-              <div className="expert-actions">
-                <a href={contact.phoneHref}>
-                  <Phone size={18} />
-                  Call John at {contact.phone}
-                </a>
-                <a href={`mailto:${contact.email}`}>
-                  <Mail size={18} />
-                  {contact.email}
-                </a>
+
+            <div className="team-section" aria-label="VacationRentalExpertz team">
+              <div className="team-heading">
+                <span>Team</span>
+                <h3>Meet the person behind the curation.</h3>
               </div>
+
+              {teamMembers.map((member) => (
+                <article className="team-profile" key={member.name}>
+                  <div className="team-photo-card">
+                    <img src={member.image} alt={member.name} />
+                    <span>{member.badge}</span>
+                  </div>
+                  <div className="team-copy">
+                    <span className="team-role">{member.role}</span>
+                    <h3>{member.name}</h3>
+                    {member.bio.map((paragraph) => (
+                      <p key={paragraph}>{paragraph}</p>
+                    ))}
+                    <div className="team-actions">
+                      <a href={contact.phoneHref}>
+                        <Phone size={18} />
+                        Call John at {contact.phone}
+                      </a>
+                      <a href={`mailto:${contact.email}`}>
+                        <Mail size={18} />
+                        {contact.email}
+                      </a>
+                    </div>
+                  </div>
+                </article>
+              ))}
             </div>
           </div>
         </section>
@@ -815,7 +860,7 @@ function App() {
         </div>
         <div className="footer-links">
           <a href="#stays">Combo stays</a>
-          <a href="#john">John Carpenter</a>
+          <a href="#about">About</a>
           <a href={contact.phoneHref}>{contact.phone}</a>
           <a href={`mailto:${contact.email}`}>Contact</a>
         </div>
