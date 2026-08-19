@@ -29,17 +29,22 @@ Important variables:
 
 ```env
 VITE_GUESTY_PROXY_URL=/api/guesty
-GUESTY_API_MODE=auto
+GUESTY_API_MODE=open
 GUESTY_CLIENT_ID=
 GUESTY_CLIENT_SECRET=
 GUESTY_DEFAULT_COUNTRY=United States
+GUESTY_REQUIRE_ACTIVE=true
+GUESTY_REQUIRE_LISTED=false
+GUESTY_MAX_LISTINGS=250
 GUESTY_LISTING_IDS=
 GUESTY_LISTING_TAG=
 GUESTY_VIEW_ID=
 GUESTY_BOOKING_URL_TEMPLATE=
 ```
 
-The site assumes the listings returned from Guesty are already the combined, guest-facing listings. `GUESTY_API_MODE=auto` tries the Guesty Open API first and then the Booking Engine API. You can also set `GUESTY_API_MODE=open` when using Open API credentials, or `GUESTY_API_MODE=booking` when using Booking Engine API credentials and the listings are included in that Booking Engine API instance.
+The site assumes the listings returned from Guesty are already the combined, guest-facing listings. For this public inventory page, use `GUESTY_API_MODE=open` so the site reads the full Guesty listing inventory. The Booking Engine API only returns listings attached to that Booking Engine instance; use `GUESTY_API_MODE=booking` only when every public listing is included in that Booking Engine API instance.
+
+The Open API inventory fetch requires `active=true` by default. It does not require Guesty's `listed=true` flag unless `GUESTY_REQUIRE_LISTED=true` is set, because some valid combined listings may be active but not marked with that listing flag. `GUESTY_MAX_LISTINGS` caps pagination safety; raise it if the public inventory grows beyond the default.
 
 `GUESTY_LISTING_IDS`, `GUESTY_LISTING_TAG`, and `GUESTY_VIEW_ID` are optional filters in case the Guesty account also contains listings that should not appear on the public website.
 
