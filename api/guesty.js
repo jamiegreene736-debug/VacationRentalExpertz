@@ -52,9 +52,11 @@ function cleanEnvValue(value) {
 
 function createGuestyAuthError(mode, status, detail) {
   const apiName = mode === "open" ? "Open API" : "Booking Engine API";
+  const formattedDetail =
+    detail && typeof detail === "object" ? JSON.stringify(detail).slice(0, 240) : String(detail || "").slice(0, 240);
   const error = new Error(
     `Guesty authentication failed for ${apiName}${status ? ` (HTTP ${status})` : ""}.${
-      detail ? ` Guesty said: ${detail}` : ""
+      formattedDetail ? ` Guesty said: ${formattedDetail}` : ""
     }`,
   );
 
@@ -158,20 +160,35 @@ function setIfPresent(params, key, value) {
   if (value) params.set(key, value);
 }
 
+function isEnvEnabled(name, defaultValue = false) {
+  const value = cleanEnvValue(process.env[name]).toLowerCase();
+
+  if (!value) return defaultValue;
+  return ["1", "true", "yes", "on"].includes(value);
+}
+
 function buildGuestyUrl(query, mode) {
   const search = new URLSearchParams();
   const limit = Math.min(Number(query.get("limit") || 50), 100);
+  const skip = Number(query.get("skip") || 0);
   const checkIn = query.get("checkIn");
   const checkOut = query.get("checkOut");
   const guests = Number(query.get("guests") || 0);
   const city = query.get("city");
 
   search.set("limit", String(limit));
+  if (skip > 0) search.set("skip", String(skip));
   search.set("fields", bookingFields);
 
   if (mode === "open") {
-    search.set("active", "true");
-    search.set("listed", "true");
+    if (isEnvEnabled("GUESTY_REQUIRE_ACTIVE", true)) {
+      search.set("active", "true");
+    }
+
+    if (isEnvEnabled("GUESTY_REQUIRE_LISTED", false)) {
+      search.set("listed", "true");
+    }
+
     search.set("sort", "title");
 
     if (process.env.GUESTY_VIEW_ID) {
@@ -546,7 +563,32 @@ function normalizeGuestyListing(listing) {
   };
 }
 
-async function fetchGuestyListings(query, mode, token) {
+function getPayloadListings(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload.results)) return payload.results;
+  if (Array.isArray(payload.listings)) return payload.listings;
+  if (Array.isArray(payload.data)) return payload.data;
+
+  return [];
+}
+
+function getPayloadTotalCount(payload, listings) {
+  const totalCount =
+    payload?.count ??
+    payload?.total ??
+    payload?.totalCount ??
+    payload?.pagination?.total ??
+    payload?.meta?.total ??
+    payload?.metadata?.total;
+
+  const normalizedTotalCount = Number(totalCount);
+
+  return Number.isFinite(normalizedTotalCount) && normalizedTotalCount >= listings.length
+    ? normalizedTotalCount
+    : listings.length;
+}
+
+async function fetchGuestyListingsPage(query, mode, token) {
   const guestyUrl = buildGuestyUrl(query, mode);
   const response = await fetch(guestyUrl, {
     headers: {
@@ -561,12 +603,47 @@ async function fetchGuestyListings(query, mode, token) {
     throw new Error(payload.message || payload.error || "Guesty listings request failed.");
   }
 
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload.results)) return payload.results;
-  if (Array.isArray(payload.listings)) return payload.listings;
-  if (Array.isArray(payload.data)) return payload.data;
+  const listings = getPayloadListings(payload);
 
-  return [];
+  return {
+    listings,
+    totalCount: getPayloadTotalCount(payload, listings),
+  };
+}
+
+async function fetchGuestyListings(query, mode, token) {
+  const hasExplicitLimit = query.has("limit");
+  const requestedLimit = Math.min(Number(query.get("limit") || 100), 100);
+  const maxListings = hasExplicitLimit ? requestedLimit : Math.min(Number(process.env.GUESTY_MAX_LISTINGS || 250), 500);
+  const listings = [];
+  let totalCount = 0;
+  let skip = Number(query.get("skip") || 0);
+
+  while (listings.length < maxListings) {
+    const pageQuery = new URLSearchParams(query);
+    const remainingLimit = Math.max(maxListings - listings.length, 0);
+    const pageLimit = Math.min(requestedLimit, remainingLimit);
+
+    if (pageLimit <= 0) break;
+
+    pageQuery.set("limit", String(pageLimit));
+    pageQuery.set("skip", String(skip));
+
+    const page = await fetchGuestyListingsPage(pageQuery, mode, token);
+    totalCount = Math.max(totalCount, page.totalCount);
+
+    listings.push(...page.listings);
+
+    if (page.listings.length < pageLimit) break;
+    if (totalCount && listings.length >= totalCount) break;
+
+    skip += pageLimit;
+  }
+
+  return {
+    listings,
+    totalCount: Math.max(totalCount, listings.length),
+  };
 }
 
 function getGuestyModes() {
@@ -612,7 +689,8 @@ export default async function handler(request, response) {
         throw error;
       }
 
-      const fetchedListings = await fetchGuestyListings(query, mode, token);
+      const inventory = await fetchGuestyListings(query, mode, token);
+      const fetchedListings = inventory.listings;
       const listings = filterListings(fetchedListings);
       const collections = listings.map(normalizeGuestyListing);
 
@@ -621,6 +699,7 @@ export default async function handler(request, response) {
         mode,
         collections,
         rawCount: fetchedListings.length,
+        totalCount: inventory.totalCount,
         filteredCount: listings.length,
         syncedAt: new Date().toISOString(),
         message:
