@@ -1,13 +1,12 @@
-const guestyEndpoint = import.meta.env.VITE_GUESTY_PROXY_URL || "/api/guesty";
+const catalogEndpoint = "/api/stays";
 
 function normalizeCollection(stay) {
   const photos = Array.isArray(stay.photos) ? stay.photos.filter(Boolean) : [];
   const image = stay.image || photos[0] || "";
 
   return {
-    ...stay,
-    id: String(stay.id || stay._id || stay.guestyListingId || stay.title || crypto.randomUUID()),
-    title: stay.title || stay.nickname || "Untitled Guesty listing",
+    id: String(stay.id || stay.title || crypto.randomUUID()),
+    title: stay.title || stay.nickname || "Untitled stay",
     resort: stay.resort || stay.address?.city || "",
     location: stay.location || [stay.address?.city, stay.address?.state, stay.address?.country].filter(Boolean).join(", "),
     badge: stay.badge || "",
@@ -17,7 +16,7 @@ function normalizeCollection(stay) {
     price: Number(stay.price || 0),
     image,
     photos: image ? [image, ...photos.filter((photo) => photo !== image)] : photos,
-    imageAlt: stay.imageAlt || `${stay.title || "Guesty listing"} vacation rental`,
+    imageAlt: stay.imageAlt || `${stay.title || "Stay"} vacation rental`,
     summary: stay.summary || "",
     description: stay.description || "",
     descriptionSections: Array.isArray(stay.descriptionSections)
@@ -25,24 +24,18 @@ function normalizeCollection(stay) {
       : [],
     units: Array.isArray(stay.units) ? stay.units.filter((unit) => unit?.name || unit?.detail) : [],
     amenities: Array.isArray(stay.amenities) ? stay.amenities.filter(Boolean) : [],
-    seasonalPricing: Array.isArray(stay.seasonalPricing)
-      ? stay.seasonalPricing.filter((rate) => rate?.label)
-      : [],
-    pricingSource: stay.pricingSource || "",
-    pricingNote: stay.pricingNote || "",
     bookingUrl: stay.bookingUrl || "",
-    guestyListingId: stay.guestyListingId || stay._id || stay.id || "",
   };
 }
 
-export async function fetchGuestyCollections(search) {
+export async function fetchStayCollections(search) {
   const params = new URLSearchParams();
 
   Object.entries(search).forEach(([key, value]) => {
     if (value) params.set(key, value);
   });
 
-  const response = await fetch(`${guestyEndpoint}?${params.toString()}`, {
+  const response = await fetch(`${catalogEndpoint}?${params.toString()}`, {
     headers: {
       Accept: "application/json",
     },
@@ -52,24 +45,17 @@ export async function fetchGuestyCollections(search) {
 
   if (!contentType.includes("application/json")) {
     throw new Error(
-      "The Guesty API route is not running on this host yet. Deploy the Node server so /api/guesty returns JSON instead of the website HTML.",
+      "Live stays are temporarily unavailable.",
     );
   }
 
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(payload.message || "Guesty inventory could not be loaded.");
+    throw new Error(payload.message || "Live stays could not be loaded.");
   }
 
   const collections = Array.isArray(payload.collections) ? payload.collections.map(normalizeCollection) : [];
 
-  return {
-    source: payload.source || "guesty",
-    message: payload.message || "",
-    collections,
-    rawCount: Number(payload.rawCount || 0),
-    filteredCount: Number(payload.filteredCount || collections.length),
-    syncedAt: payload.syncedAt || "",
-  };
+  return { collections };
 }

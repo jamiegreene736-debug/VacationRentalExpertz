@@ -25,7 +25,7 @@ import {
 import logoImage from "./assets/brand/vacation-rental-expertz-logo-horizontal.png";
 import mobileLogoImage from "./assets/brand/vacation-rental-expertz-logo-stacked.png";
 import johnHeadshot from "./assets/brand/john-carpenter-headshot.jpg";
-import { fetchGuestyCollections } from "./guesty";
+import { fetchStayCollections } from "./stays";
 
 const stats = [
   { value: "2x", label: "nearby resort condos instead of one oversized house" },
@@ -143,17 +143,6 @@ function formatCurrency(value) {
   }).format(value);
 }
 
-function formatRateRange(rate) {
-  const minPrice = Number(rate?.minPrice || rate?.price || 0);
-  const maxPrice = Number(rate?.maxPrice || rate?.price || 0);
-
-  if (minPrice && maxPrice && minPrice !== maxPrice) {
-    return `${formatCurrency(minPrice)} - ${formatCurrency(maxPrice)}`;
-  }
-
-  return formatCurrency(rate?.price || minPrice || maxPrice);
-}
-
 function getStatusLabel(status) {
   if (status === "loading") return "Loading stays";
   if (status === "live") return "Live stays";
@@ -210,13 +199,14 @@ function addBookingParams(baseUrl, search) {
   try {
     const url = new URL(baseUrl, "https://www.vacationrentalexpertz.com");
 
+    if (url.protocol !== "https:" || url.username || url.password) return "";
     if (search.checkIn) url.searchParams.set("checkIn", search.checkIn);
     if (search.checkOut) url.searchParams.set("checkOut", search.checkOut);
     if (search.guests) url.searchParams.set("guests", search.guests);
 
     return url.toString();
   } catch {
-    return baseUrl;
+    return "";
   }
 }
 
@@ -230,8 +220,8 @@ function App() {
   const [search, setSearch] = useState(getSearchFromUrl);
   const [submittedSearch, setSubmittedSearch] = useState(getSearchFromUrl);
   const [collections, setCollections] = useState([]);
-  const [guestyStatus, setGuestyStatus] = useState("idle");
-  const [guestyMessage, setGuestyMessage] = useState("");
+  const [catalogStatus, setCatalogStatus] = useState("idle");
+  const [catalogMessage, setCatalogMessage] = useState("");
   const [activeStay, setActiveStay] = useState(null);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
@@ -257,17 +247,17 @@ function App() {
     let ignore = false;
 
     async function loadCollections() {
-      setGuestyStatus("loading");
-      setGuestyMessage("");
+      setCatalogStatus("loading");
+      setCatalogMessage("");
 
       try {
-        const response = await fetchGuestyCollections(submittedSearch);
+        const response = await fetchStayCollections(submittedSearch);
 
         if (ignore) return;
 
         setCollections(response.collections);
-        setGuestyStatus(response.collections.length > 0 ? "live" : "empty");
-        setGuestyMessage(
+        setCatalogStatus(response.collections.length > 0 ? "live" : "empty");
+        setCatalogMessage(
           response.collections.length > 0
             ? ""
             : "No matching stays are available right now. Try changing your search or contact us for current options.",
@@ -277,8 +267,8 @@ function App() {
 
         setCollections([]);
         setActiveStay(null);
-        setGuestyStatus("error");
-        setGuestyMessage("Live stays are temporarily unavailable. Contact us and we will send current options.");
+        setCatalogStatus("error");
+        setCatalogMessage("Live stays are temporarily unavailable. Contact us and we will send current options.");
       }
     }
 
@@ -492,7 +482,7 @@ function App() {
               <p className="section-kicker">Search Curated Stays</p>
               <h1>Find the right two-condo setup.</h1>
               <p>
-                Search live Guesty inventory for curated resort stays. Enter your destination,
+                Search live inventory for curated resort stays. Enter your destination,
                 dates, and headcount, then open a listing for photos, seasonal pricing, amenities,
                 and booking options.
               </p>
@@ -714,30 +704,30 @@ function App() {
               </h2>
               {isSearchPage && (
                 <p className="search-results-summary">
-                  {guestyStatus === "loading"
-                    ? "Checking Guesty for current inventory."
+                  {catalogStatus === "loading"
+                    ? "Checking current availability."
                     : `${visibleCollections.length} curated ${
                         visibleCollections.length === 1 ? "stay" : "stays"
                       }${submittedSearch.city ? ` for ${submittedSearch.city}` : ""}.`}
                 </p>
               )}
             </div>
-            <div className="live-pill" data-status={guestyStatus}>
+            <div className="live-pill" data-status={catalogStatus}>
               <span />
-              {getStatusLabel(guestyStatus)}
+              {getStatusLabel(catalogStatus)}
             </div>
           </div>
 
-          {guestyMessage && <p className="sync-note">{guestyMessage}</p>}
+          {catalogMessage && <p className="sync-note">{catalogMessage}</p>}
 
           {visibleCollections.length === 0 ? (
-            <div className="empty-state" data-status={guestyStatus}>
+            <div className="empty-state" data-status={catalogStatus}>
               <Building2 size={28} />
-              <h3>{guestyStatus === "loading" ? "Finding live stays" : "No live stays to show yet"}</h3>
+              <h3>{catalogStatus === "loading" ? "Finding live stays" : "No live stays to show yet"}</h3>
               <p>
-                {guestyStatus === "loading"
+                {catalogStatus === "loading"
                   ? "The site is checking current stay options."
-                  : guestyMessage ||
+                  : catalogMessage ||
                     "No placeholder properties are being shown. Once live stays are available, this section will fill with real inventory."}
               </p>
             </div>
@@ -755,7 +745,6 @@ function App() {
             const descriptionSections = getDescriptionSections(activeStay);
             const bookingUrl = createBookingUrl(activeStay, search);
             const hasDirectBookingUrl = Boolean(activeStay.bookingUrl);
-            const seasonalPricing = Array.isArray(activeStay.seasonalPricing) ? activeStay.seasonalPricing : [];
             const listingFacts = [
               { icon: <BedDouble size={19} />, label: formatMetric(activeStay.bedrooms, "bedroom") },
               { icon: <Bath size={19} />, label: formatMetric(activeStay.bathrooms, "bath") },
@@ -882,35 +871,10 @@ function App() {
 
                       <section className="seasonal-pricing-section">
                         <div className="seasonal-pricing-heading">
-                          <h3>Seasonal pricing</h3>
-                          <span>{activeStay.pricingSource || "Guesty rates"}</span>
+                          <h3>Rates for your stay</h3>
+                          <strong>{formatCurrency(activeStay.price)}</strong>
                         </div>
-
-                        {seasonalPricing.length > 0 ? (
-                          <div className="seasonal-rate-grid">
-                            {seasonalPricing.map((rate) => (
-                              <div
-                                className="seasonal-rate"
-                                key={`${rate.label}-${rate.price}-${rate.minPrice}-${rate.maxPrice}`}
-                              >
-                                <span>{rate.label}</span>
-                                <strong>{formatRateRange(rate)}</strong>
-                                {rate.detail && <small>{rate.detail}</small>}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="seasonal-rate seasonal-rate-wide">
-                            <span>Live seasonal quote</span>
-                            <strong>{formatCurrency(activeStay.price)}</strong>
-                            <small>
-                              Rates vary by season, holidays, weekends, availability, and the exact two
-                              condos assigned. Enter dates or contact John for the current Guesty quote.
-                            </small>
-                          </div>
-                        )}
-
-                        {activeStay.pricingNote && <p>{activeStay.pricingNote}</p>}
+                        <p>Rates vary by dates and availability. Enter your dates or contact John for a quote.</p>
                       </section>
 
                       {activeStay.amenities.length > 0 && (

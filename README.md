@@ -17,7 +17,7 @@ npm run build
 
 ## Guesty Integration
 
-Guesty credentials must stay server-side. The browser calls `/api/guesty` by default, and the Node server requests Guesty inventory and returns your already-combined Guesty listings to the React app. The site does not show placeholder property listings if Guesty is unavailable.
+Guesty credentials must stay server-side. The browser calls the same-origin `/api/stays` catalog endpoint, and the Node server requests Guesty inventory and returns your already-combined Guesty listings to the React app. The site does not show placeholder property listings if Guesty is unavailable.
 
 Copy `.env.example` to `.env.local` for local configuration:
 
@@ -28,7 +28,6 @@ cp .env.example .env.local
 Important variables:
 
 ```env
-VITE_GUESTY_PROXY_URL=/api/guesty
 GUESTY_API_MODE=open
 GUESTY_CLIENT_ID=
 GUESTY_CLIENT_SECRET=
@@ -52,7 +51,9 @@ Listings can expose their own booking URL from Guesty. If your listing payload d
 
 ## Deployment Note
 
-Railway should run `npm run build` and then `npm start`. `npm start` launches `server.js`, which serves the built React site and the live `/api/guesty` endpoint. A static-only deployment cannot run this route, so use `VITE_GUESTY_PROXY_URL` to point the frontend at a hosted backend if the site is ever served as static files only.
+Railway should run `npm run build` and then `npm start`. `npm start` launches `server.js`, which serves the built React site and the live `/api/stays` endpoint. The old provider-named route is retired. The same host must serve the frontend and API.
+
+The catalog is intentionally public and read only. It sends a curated display projection and accepts only the four search fields. It does not include internal identifiers, seasonal pricing tables, or upstream errors. Direct photo and booking URLs may still identify their host. Keep a dedicated public listing selection configured in the provider. On Railway the throttler uses the edge-provided client IP and also enforces a process-wide ceiling; it is not a DDoS service.
 
 ## Guesty References
 

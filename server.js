@@ -1,9 +1,10 @@
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { open, realpath } from "node:fs/promises";
+import { pipeline } from "node:stream/promises";
 import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import guestyHandler from "./api/guesty.js";
+import catalogHandler from "./api/guesty.js";
+import { createCatalogLimiter, setSecurityHeaders } from "./storefront-security.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,6 +12,7 @@ const distDir = path.join(__dirname, "dist");
 const port = process.env.PORT || 4173;
 const apexHost = "vacationrentalexpertz.com";
 const wwwHost = "www.vacationrentalexpertz.com";
+const catalogLimit = createCatalogLimiter();
 
 const mimeTypes = {
   ".css": "text/css; charset=utf-8",
@@ -32,63 +34,79 @@ function sendStatus(response, status, message) {
   response.end(message);
 }
 
-function safeJoin(baseDir, requestPath) {
-  const decodedPath = decodeURIComponent(requestPath);
-  const resolvedPath = path.resolve(baseDir, `.${decodedPath}`);
-
-  return resolvedPath.startsWith(baseDir) ? resolvedPath : "";
+function contained(base, file) {
+  const relative = path.relative(base, file);
+  return relative !== "" && relative !== ".." && !relative.startsWith(".." + path.sep) && !path.isAbsolute(relative);
 }
 
-async function serveFile(requestPath, response) {
-  const resolvedPath = safeJoin(distDir, requestPath);
+async function serveFile(requestPath, request, response) {
+  let decoded;
+  try { decoded = decodeURIComponent(requestPath); }
+  catch { return sendStatus(response, 400, "Bad request"); }
 
-  if (!resolvedPath) {
-    sendStatus(response, 403, "Forbidden");
-    return;
+  if (/[\\\u0000-\u001f\u007f]/.test(decoded) || decoded.split("/").some(segment => segment.startsWith("."))) {
+    return sendStatus(response, 404, "Not found");
   }
 
-  const extension = path.extname(resolvedPath);
-  let filePath = extension ? resolvedPath : path.join(distDir, "index.html");
+  const resolved = path.resolve(distDir, "." + decoded);
+  const extension = path.extname(resolved);
+  const candidate = extension ? resolved : path.join(distDir, "index.html");
+  if (!contained(distDir, candidate)) return sendStatus(response, 404, "Not found");
 
+  let file;
   try {
-    const fileStat = await stat(filePath);
-
-    if (fileStat.isDirectory()) {
-      filePath = path.join(filePath, "index.html");
-    }
-
+    const [root, canonical] = await Promise.all([realpath(distDir), realpath(candidate)]);
+    if (!contained(root, canonical)) return sendStatus(response, 404, "Not found");
+    file = await open(canonical, "r");
+    const info = await file.stat();
+    if (!info.isFile()) return sendStatus(response, 404, "Not found");
     response.statusCode = 200;
-    response.setHeader("Content-Type", mimeTypes[path.extname(filePath)] || "application/octet-stream");
-    createReadStream(filePath).pipe(response);
+    response.setHeader("Content-Type", mimeTypes[path.extname(candidate)] || "application/octet-stream");
+    response.setHeader("Content-Length", info.size);
+    response.setHeader("Cache-Control", candidate.endsWith(".html") ? "no-cache" : "public, max-age=300");
+    if (request.method === "HEAD") return response.end();
+    await pipeline(file.createReadStream(), response);
   } catch {
-    if (extension) {
-      sendStatus(response, 404, "Not found");
-      return;
-    }
-
-    response.statusCode = 200;
-    response.setHeader("Content-Type", "text/html; charset=utf-8");
-    createReadStream(path.join(distDir, "index.html")).pipe(response);
+    if (!response.headersSent && !response.destroyed) return sendStatus(response, extension ? 404 : 503, extension ? "Not found" : "Temporarily unavailable");
+  } finally {
+    if (file) await file.close().catch(() => {});
   }
 }
 
-createServer((request, response) => {
-  const url = new URL(request.url, `http://${request.headers.host || "localhost"}`);
+const server = createServer({ requestTimeout: 15_000, headersTimeout: 10_000, maxHeaderSize: 16_384 }, async (request, response) => {
   const host = request.headers.host?.split(":")[0]?.toLowerCase();
-
-  if (host === apexHost) {
-    response.statusCode = 301;
-    response.setHeader("Location", `https://${wwwHost}${url.pathname}${url.search}`);
-    response.end();
-    return;
+  setSecurityHeaders(response, host === wwwHost || host === apexHost);
+  try {
+    const raw = request.url || "";
+    if (!raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\") || raw.length > 2048) {
+      return sendStatus(response, 400, "Bad request");
+    }
+    const url = new URL(raw, "http://localhost");
+    if (host === apexHost) {
+      response.statusCode = 301;
+      response.setHeader("Location", `https://${wwwHost}${url.pathname}${url.search}`);
+      return response.end();
+    }
+    if (url.pathname === "/api/stays") {
+      const retry = catalogLimit(request);
+      if (retry) {
+        response.setHeader("Retry-After", String(retry));
+        response.setHeader("Cache-Control", "no-store");
+        response.setHeader("Content-Type", "application/json; charset=utf-8");
+        response.statusCode = 429;
+        return response.end(JSON.stringify({ message: "Too many requests. Please try again shortly." }));
+      }
+      return await catalogHandler(request, response, url.searchParams);
+    }
+    if (url.pathname === "/api" || url.pathname.startsWith("/api/")) return sendStatus(response, 404, "Not found");
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      response.setHeader("Allow", "GET, HEAD");
+      return sendStatus(response, 405, "Method not allowed");
+    }
+    await serveFile(url.pathname, request, response);
+  } catch {
+    if (!response.headersSent && !response.destroyed) sendStatus(response, 500, "Temporarily unavailable");
   }
-
-  if (url.pathname === "/api/guesty") {
-    guestyHandler(request, response);
-    return;
-  }
-
-  serveFile(url.pathname, response);
-}).listen(port, () => {
-  console.log(`VacationRentalExpertz server listening on ${port}`);
 });
+
+server.listen(port, () => console.log(`VacationRentalExpertz server listening on ${port}`));
