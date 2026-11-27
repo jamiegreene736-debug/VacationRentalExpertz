@@ -1,3 +1,6 @@
+import { createHmac, randomBytes } from "node:crypto";
+import { publicHttpsUrl, validateSearch } from "../storefront-security.js";
+
 const BOOKING_BASE_URL = "https://booking.guesty.com/api";
 const BOOKING_TOKEN_URL = "https://booking.guesty.com/oauth2/token";
 const OPEN_BASE_URL = "https://open-api.guesty.com/v1";
@@ -38,11 +41,13 @@ const bookingFields = [
   "prices",
 ].join(" ");
 
-let tokenCache = {
-  mode: "",
-  token: "",
-  expiresAt: 0,
-};
+const tokenCache = new Map();
+const catalogCache = new Map();
+const pending = new Map();
+const cacheTtl = 120_000;
+const cacheLimit = 100;
+const maxUpstreamRequests = 8;
+const localIdSecret = randomBytes(32);
 
 function cleanEnvValue(value) {
   return String(value || "")
@@ -50,32 +55,11 @@ function cleanEnvValue(value) {
     .replace(/^["']|["']$/g, "");
 }
 
-function createGuestyAuthError(mode, status, detail) {
-  const apiName = mode === "open" ? "Open API" : "Booking Engine API";
-  const formattedDetail =
-    detail && typeof detail === "object" ? JSON.stringify(detail).slice(0, 240) : String(detail || "").slice(0, 240);
-  const error = new Error(
-    `Guesty authentication failed for ${apiName}${status ? ` (HTTP ${status})` : ""}.${
-      formattedDetail ? ` Guesty said: ${formattedDetail}` : ""
-    }`,
-  );
-
-  error.isGuestyAuthError = true;
-  error.mode = mode;
-
-  return error;
-}
-
 function sendJson(response, status, payload) {
   response.statusCode = status;
-  response.setHeader("Content-Type", "application/json");
-  response.setHeader("Cache-Control", status === 200 ? "s-maxage=300, stale-while-revalidate=900" : "no-store");
+  response.setHeader("Content-Type", "application/json; charset=utf-8");
+  response.setHeader("Cache-Control", status === 200 ? "private, max-age=30" : "no-store");
   response.end(JSON.stringify(payload));
-}
-
-function getQuery(request) {
-  const host = request.headers.host || "localhost";
-  return new URL(request.url, `https://${host}`).searchParams;
 }
 
 function getGuestyCredentials(mode) {
@@ -97,9 +81,8 @@ function getGuestyCredentials(mode) {
 async function getToken(mode) {
   const now = Date.now();
 
-  if (tokenCache.mode === mode && tokenCache.token && tokenCache.expiresAt - 60_000 > now) {
-    return tokenCache.token;
-  }
+  const cached = tokenCache.get(mode);
+  if (cached && cached.expiresAt - 60_000 > now) return cached.token;
 
   const { clientId, clientSecret } = getGuestyCredentials(mode);
 
@@ -126,6 +109,8 @@ async function getToken(mode) {
 
   tokenResponse = await fetch(mode === "open" ? OPEN_TOKEN_URL : BOOKING_TOKEN_URL, {
     method: "POST",
+    redirect: "error",
+    signal: AbortSignal.timeout(5_000),
     headers: {
       Accept: "application/json",
       "Content-Type": "application/x-www-form-urlencoded",
@@ -133,27 +118,23 @@ async function getToken(mode) {
     body,
   });
 
-  const rawPayload = await tokenResponse.text();
-  let payload = {};
-
-  try {
-    payload = rawPayload ? JSON.parse(rawPayload) : {};
-  } catch {
-    payload = {};
-  }
-
   if (!tokenResponse.ok) {
-    const detail = payload.error_description || payload.error || payload.message || rawPayload.slice(0, 180);
-    throw createGuestyAuthError(mode, tokenResponse.status, detail);
+    await tokenResponse.body?.cancel();
+    const error = new Error("Inventory authentication failed.");
+    error.isGuestyAuthError = true;
+    throw error;
   }
 
-  tokenCache = {
-    mode,
+  const payload = await tokenResponse.json();
+  if (typeof payload.access_token !== "string" || !payload.access_token) {
+    throw new Error("Inventory authentication returned no token.");
+  }
+  const lifetime = Number(payload.expires_in ?? 3600);
+  tokenCache.set(mode, {
     token: payload.access_token,
-    expiresAt: now + Math.min(Number(payload.expires_in || 86400), 86400) * 1000,
-  };
-
-  return tokenCache.token;
+    expiresAt: now + (Number.isFinite(lifetime) ? Math.min(Math.max(0, lifetime), 86400) : 3600) * 1000,
+  });
+  return payload.access_token;
 }
 
 function setIfPresent(params, key, value) {
@@ -290,87 +271,6 @@ function getNightlyRateEntries(nightlyRates) {
     .filter((entry) => entry.price > 0);
 }
 
-function getSeasonBucket(dateValue) {
-  const date = new Date(`${dateValue}T00:00:00Z`);
-
-  if (!dateValue || Number.isNaN(date.getTime())) return null;
-
-  const month = date.getUTCMonth();
-
-  if (month === 11 || month <= 1) return { order: 1, label: "Winter / holiday season" };
-  if (month >= 2 && month <= 4) return { order: 2, label: "Spring break season" };
-  if (month >= 5 && month <= 7) return { order: 3, label: "Summer travel season" };
-
-  return { order: 4, label: "Fall value season" };
-}
-
-function summarizeRates(label, prices, detail) {
-  const cleanPrices = prices.filter((price) => Number.isFinite(price) && price > 0);
-
-  if (cleanPrices.length === 0) return null;
-
-  const minPrice = Math.min(...cleanPrices);
-  const maxPrice = Math.max(...cleanPrices);
-  const averagePrice = Math.round(cleanPrices.reduce((total, price) => total + price, 0) / cleanPrices.length);
-
-  return {
-    label,
-    price: averagePrice,
-    minPrice: Math.round(minPrice),
-    maxPrice: Math.round(maxPrice),
-    detail,
-  };
-}
-
-function getSeasonalPricing(listing) {
-  const nightlyRateEntries = getNightlyRateEntries(listing.nightlyRates);
-  const seasonGroups = new Map();
-
-  nightlyRateEntries.forEach((entry) => {
-    const season = getSeasonBucket(entry.date);
-    if (!season) return;
-
-    const existing = seasonGroups.get(season.label) || { ...season, prices: [] };
-    existing.prices.push(entry.price);
-    seasonGroups.set(season.label, existing);
-  });
-
-  const seasonalRates = [...seasonGroups.values()]
-    .sort((a, b) => a.order - b.order)
-    .map((season) => summarizeRates(season.label, season.prices, "Guesty nightly calendar range"))
-    .filter(Boolean);
-
-  if (seasonalRates.length > 0) return seasonalRates;
-
-  const prices = listing.prices || {};
-  const fieldRates = [
-    ["Base nightly rate", prices.basePrice ?? prices.base ?? prices.nightly ?? listing.price],
-    ["Weekend nightly rate", prices.weekendPrice ?? prices.weekend ?? prices.weekendRate],
-    ["Weekly stay rate", prices.weeklyPrice ?? prices.weekly],
-    ["Monthly stay rate", prices.monthlyPrice ?? prices.monthly],
-  ]
-    .map(([label, value]) => summarizeRates(label, [getRateNumber(value)], "Guesty pricing field"))
-    .filter(Boolean);
-
-  return fieldRates.filter(
-    (rate, index, rates) => rates.findIndex((candidate) => candidate.label === rate.label && candidate.price === rate.price) === index,
-  );
-}
-
-function getPricingSource(listing, seasonalPricing = getSeasonalPricing(listing)) {
-  if (getNightlyRateEntries(listing.nightlyRates).length > 0) return "Guesty nightly calendar";
-  if (seasonalPricing.length > 0) return "Guesty pricing fields";
-  return "Live Guesty quote";
-}
-
-function getPricingNote(listing) {
-  if (getNightlyRateEntries(listing.nightlyRates).length > 0) {
-    return "Seasonal ranges are summarized from the nightly rates Guesty returns for this listing. Exact totals can still change with fees, taxes, availability, and the selected dates.";
-  }
-
-  return "Exact seasonal totals are confirmed from Guesty when dates are selected because holidays, weekends, fees, taxes, and availability can change the final quote.";
-}
-
 function cleanText(value) {
   if (!value) return "";
 
@@ -397,9 +297,7 @@ function getDescriptionSections(listing) {
   const sectionCandidates = [
     ["Overview", publicSummary || internalSummary || listing.description || listing.marketingDescription],
     ["The space", publicDescription.space || descriptions.space],
-    ["Guest access", publicDescription.access || descriptions.access],
     ["Neighborhood", publicDescription.neighborhood || descriptions.neighborhood],
-    ["Notes", publicDescription.notes || descriptions.notes],
     ["House rules", listing.terms?.houseRules || listing.houseRules],
   ];
 
@@ -433,6 +331,7 @@ function getPhotos(listing) {
   ];
 
   return [...galleryPhotos, ...singlePhotos]
+    .map(publicHttpsUrl)
     .filter(Boolean)
     .filter((photo, index, photos) => photos.indexOf(photo) === index);
 }
@@ -451,7 +350,8 @@ function getBookingUrl(listing) {
     listing.links?.booking ||
     listing.links?.public;
 
-  if (directUrl) return directUrl;
+  const safeDirectUrl = publicHttpsUrl(directUrl);
+  if (safeDirectUrl) return safeDirectUrl;
 
   const template = cleanEnvValue(process.env.GUESTY_BOOKING_URL_TEMPLATE);
   const listingId = getListingId(listing);
@@ -459,13 +359,13 @@ function getBookingUrl(listing) {
   if (!template || !listingId) return "";
 
   if (template.includes("{listingId}")) {
-    return template.replaceAll("{listingId}", encodeURIComponent(listingId));
+    return publicHttpsUrl(template.replaceAll("{listingId}", encodeURIComponent(listingId)));
   }
 
   try {
     const url = new URL(template);
     url.searchParams.set("listingId", listingId);
-    return url.toString();
+    return publicHttpsUrl(url.toString());
   } catch {
     return "";
   }
@@ -535,10 +435,11 @@ function normalizeGuestyListing(listing) {
   const text = getListingText(listing);
   const title = listing.title || listing.nickname || "Untitled Guesty listing";
   const image = photos[0] || "";
-  const seasonalPricing = getSeasonalPricing(listing);
+  const idSecret = process.env.CATALOG_ID_SECRET || getGuestyCredentials("open").clientSecret ||
+    getGuestyCredentials("booking").clientSecret || localIdSecret;
 
   return {
-    id: getListingId(listing),
+    id: createHmac("sha256", idSecret).update("storefront-collection:v1:").update(getListingId(listing)).digest("base64url").slice(0, 24),
     title,
     resort: listing.address?.city || "",
     location: getLocation(listing),
@@ -555,11 +456,7 @@ function normalizeGuestyListing(listing) {
     descriptionSections,
     units: [],
     amenities: normalizeAmenities(listing.amenities),
-    seasonalPricing,
-    pricingSource: getPricingSource(listing, seasonalPricing),
-    pricingNote: getPricingNote(listing),
     bookingUrl: getBookingUrl(listing),
-    guestyListingId: getListingId(listing),
   };
 }
 
@@ -591,6 +488,8 @@ function getPayloadTotalCount(payload, listings) {
 async function fetchGuestyListingsPage(query, mode, token) {
   const guestyUrl = buildGuestyUrl(query, mode);
   const response = await fetch(guestyUrl, {
+    redirect: "error",
+    signal: AbortSignal.timeout(5_000),
     headers: {
       Accept: "application/json",
       Authorization: `Bearer ${token}`,
@@ -600,7 +499,7 @@ async function fetchGuestyListingsPage(query, mode, token) {
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(payload.message || payload.error || "Guesty listings request failed.");
+    throw new Error("Inventory request failed.");
   }
 
   const listings = getPayloadListings(payload);
@@ -655,74 +554,52 @@ function getGuestyModes() {
   return ["open", "booking"];
 }
 
-export default async function handler(request, response) {
-  response.setHeader("Access-Control-Allow-Origin", process.env.GUESTY_ALLOWED_ORIGIN || "*");
-  response.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
-  response.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
-
-  if (request.method === "OPTIONS") {
-    response.statusCode = 204;
-    response.end();
-    return;
+async function loadCatalog(query) {
+  for (const mode of getGuestyModes()) {
+    let token;
+    try {
+      token = await getToken(mode);
+    } catch (error) {
+      if (error.isGuestyAuthError) continue;
+      throw error;
+    }
+    const inventory = await fetchGuestyListings(query, mode, token);
+    return { collections: filterListings(inventory.listings).map(normalizeGuestyListing) };
   }
+  throw new Error("Inventory provider is unavailable.");
+}
 
+export default async function handler(request, response, input) {
   if (request.method !== "GET") {
-    sendJson(response, 405, { message: "Method not allowed" });
-    return;
+    response.setHeader("Allow", "GET");
+    return sendJson(response, 405, { message: "Method not allowed" });
   }
 
-  const query = getQuery(request);
-  const authErrors = [];
+  const query = validateSearch(input);
+  if (!query) return sendJson(response, 400, { message: "Invalid search parameters." });
+
+  const key = query.toString();
+  const hit = catalogCache.get(key);
+  if (hit?.until > Date.now()) return sendJson(response, 200, hit.data);
 
   try {
-    for (const mode of getGuestyModes()) {
-      let token;
-
-      try {
-        token = await getToken(mode);
-      } catch (error) {
-        if (error.isGuestyAuthError) {
-          authErrors.push(error.message);
-          continue;
-        }
-
-        throw error;
+    let work = pending.get(key);
+    if (!work) {
+      if (pending.size >= maxUpstreamRequests) {
+        response.setHeader("Retry-After", "5");
+        return sendJson(response, 503, { message: "Search is busy. Please try again shortly." });
       }
-
-      const inventory = await fetchGuestyListings(query, mode, token);
-      const fetchedListings = inventory.listings;
-      const listings = filterListings(fetchedListings);
-      const collections = listings.map(normalizeGuestyListing);
-
-      sendJson(response, 200, {
-        source: "guesty",
-        mode,
-        collections,
-        rawCount: fetchedListings.length,
-        totalCount: inventory.totalCount,
-        filteredCount: listings.length,
-        syncedAt: new Date().toISOString(),
-        message:
-          collections.length > 0
-            ? ""
-            : "Guesty returned zero listings for this search/configuration. Check listing filters, Booking Engine inclusion, or Guesty view/tag settings.",
-      });
-      return;
+      work = loadCatalog(query).then(data => {
+        catalogCache.delete(key);
+        if (catalogCache.size >= cacheLimit) catalogCache.delete(catalogCache.keys().next().value);
+        catalogCache.set(key, { data, until: Date.now() + cacheTtl });
+        return data;
+      }).finally(() => pending.delete(key));
+      pending.set(key, work);
     }
-
-    throw new Error(
-      [
-        "Guesty authentication failed for every configured API mode.",
-        "If your credentials came from Guesty Open API, set GUESTY_API_MODE=open.",
-        "If they came from the Booking Engine API screen, set GUESTY_API_MODE=booking.",
-        ...authErrors,
-      ].join(" "),
-    );
-  } catch (error) {
-    sendJson(response, 500, {
-      source: "guesty",
-      collections: [],
-      message: error.message || "Guesty inventory could not be loaded.",
-    });
+    return sendJson(response, 200, await work);
+  } catch {
+    // Never return provider errors, credential configuration, or upstream bodies.
+    return sendJson(response, 503, { message: "Live stays are temporarily unavailable.", collections: [] });
   }
 }

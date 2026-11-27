@@ -1,0 +1,28 @@
+name: Storefront checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Verify the browser bundle is provider-neutral
+        run: |
+          if grep -il guesty dist/assets/*.js; then
+            echo "Provider-specific code or copy was emitted to the public bundle."
+            exit 1
+          fi
